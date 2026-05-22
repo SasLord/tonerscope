@@ -1,0 +1,52 @@
+// src/lib/styles/_typography.scss
+
+@use 'variables' as v;
+
+// ─── Google Fonts Import ──────────────────────────────────────────────────────
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+// ─── Heading Scale ────────────────────────────────────────────────────────────
+.h1 { font-size: v.$font-size-3xl; font-weight: v.$font-weight-black; letter-spacing: v.$letter-spacing-tight; }
+.h2 { font-size: v.$font-size-2xl; font-weight: v.$font-weight-bold; }
+.h3 { font-size: v.$font-size-xl;  font-weight: v.$font-weight-bold; }
+.h4 { font-size: v.$font-size-lg;  font-weight: v.$font-weight-semibold; }
+.h5 { font-size: v.$font-size-md;  font-weight: v.$font-weight-semibold; }
+.h6 { font-size: v.$font-size-base; font-weight: v.$font-weight-semibold; }
+
+// ─── Text Utilities ───────────────────────────────────────────────────────────
+.text-xs     { font-size: v.$font-size-xs; }
+.text-sm     { font-size: v.$font-size-sm; }
+.text-base   { font-size: v.$font-size-base; }
+.text-md     { font-size: v.$font-size-md; }
+.text-lg     { font-size: v.$font-size-lg; }
+
+.text-mono   { font-family: v.$font-mono; }
+.text-display { font-family: v.$font-display; }
+
+.text-primary   { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary  { color: var(--text-tertiary); }
+.text-accent    { color: var(--accent); }
+.text-success   { color: v.$status-online; }
+.text-warning   { color: v.$status-warning; }
+.text-error     { color: v.$status-error; }
+
+.font-normal   { font-weight: v.$font-weight-regular; }
+.font-medium   { font-weight: v.$font-weight-medium; }
+.font-semibold { font-weight: v.$font-weight-semibold; }
+.font-bold     { font-weight: v.$font-weight-bold; }
+.font-black    { font-weight: v.$font-weight-black; }
+
+.uppercase     { text-transform: uppercase; letter-spacing: v.$letter-spacing-wide; }
+.tracking-wide { letter-spacing: v.$letter-spacing-wide; }
+.tracking-wider{ letter-spacing: v.$letter-spacing-wider; }
+
+// ─── Label Style ──────────────────────────────────────────────────────────────
+.label {
+  font-family: v.$font-mono;
+  font-size: v.$font-size-xs;
+  font-weight: v.$font-weight-semibold;
+  letter-spacing: v.$letter-spacing-wider;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}

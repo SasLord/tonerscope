@@ -1,0 +1,163 @@
+// src/app.scss
+
+@use 'lib/styles/variables' as v;
+@use 'lib/styles/reset';
+@use 'lib/styles/typography';
+@use 'lib/styles/animations';
+
+// ─── CSS Custom Properties — Dark Theme (default) ─────────────────────────────
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  // Backgrounds
+  --bg:         #0d0f12;
+  --bg-elevated: #111417;
+
+  // Surfaces (layered elevation)
+  --surface-0:  #0d0f12;
+  --surface-1:  #161a1f;
+  --surface-2:  #1d2229;
+  --surface-3:  #242b34;
+
+  // Borders
+  --border:       rgba(255,255,255,0.07);
+  --border-hover: rgba(255,255,255,0.14);
+  --border-focus: var(--accent);
+
+  // Text
+  --text-primary:   #eaedf0;
+  --text-secondary: #8b95a1;
+  --text-tertiary:  #515c68;
+  --text-disabled:  #353e48;
+
+  // Accent — electric teal
+  --accent:       #00d4aa;
+  --accent-hover: #00f0c2;
+  --accent-muted: rgba(0, 212, 170, 0.12);
+  --accent-fg:    #001a14;
+
+  // Sidebar
+  --sidebar-bg:     #0d0f12;
+  --sidebar-border: rgba(255,255,255,0.06);
+
+  // Status
+  --status-online:   #22c55e;
+  --status-offline:  #4b5563;
+  --status-printing: #3b82f6;
+  --status-error:    #ef4444;
+  --status-warning:  #f59e0b;
+  --status-unknown:  #6b7280;
+
+  // Nav active
+  --nav-active-bg:   rgba(0, 212, 170, 0.10);
+  --nav-active-text: #00d4aa;
+  --nav-hover-bg:    rgba(255,255,255,0.04);
+
+  // Scrollbar
+  --scrollbar-thumb:       rgba(255,255,255,0.12);
+  --scrollbar-thumb-hover: rgba(255,255,255,0.22);
+
+  // Skeleton
+  --skeleton-base:  #161a1f;
+  --skeleton-shine: #1d2229;
+
+  // Chart / gauge colors
+  --gauge-track:  rgba(255,255,255,0.06);
+  --gauge-ok:     #22c55e;
+  --gauge-low:    #f59e0b;
+  --gauge-crit:   #ef4444;
+
+  // Shadows (more visible on dark)
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-modal: 0 24px 64px rgba(0,0,0,0.7);
+}
+
+// ─── CSS Custom Properties — Light Theme ──────────────────────────────────────
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg:         #f4f6f9;
+  --bg-elevated: #ffffff;
+
+  --surface-0:  #f4f6f9;
+  --surface-1:  #ffffff;
+  --surface-2:  #f8fafc;
+  --surface-3:  #f1f5f9;
+
+  --border:       rgba(0,0,0,0.08);
+  --border-hover: rgba(0,0,0,0.16);
+  --border-focus: var(--accent);
+
+  --text-primary:   #0f1923;
+  --text-secondary: #4a5568;
+  --text-tertiary:  #94a3b8;
+  --text-disabled:  #cbd5e1;
+
+  --accent:       #0099aa;
+  --accent-hover: #007a8a;
+  --accent-muted: rgba(0, 153, 170, 0.10);
+  --accent-fg:    #ffffff;
+
+  --sidebar-bg:     #ffffff;
+  --sidebar-border: rgba(0,0,0,0.07);
+
+  --status-online:   #16a34a;
+  --status-offline:  #9ca3af;
+  --status-printing: #2563eb;
+  --status-error:    #dc2626;
+  --status-warning:  #d97706;
+  --status-unknown:  #9ca3af;
+
+  --nav-active-bg:   rgba(0, 153, 170, 0.08);
+  --nav-active-text: #0099aa;
+  --nav-hover-bg:    rgba(0,0,0,0.04);
+
+  --scrollbar-thumb:       rgba(0,0,0,0.15);
+  --scrollbar-thumb-hover: rgba(0,0,0,0.28);
+
+  --skeleton-base:  #e2e8f0;
+  --skeleton-shine: #f1f5f9;
+
+  --gauge-track:  rgba(0,0,0,0.07);
+  --gauge-ok:     #16a34a;
+  --gauge-low:    #d97706;
+  --gauge-crit:   #dc2626;
+
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05);
+  --shadow-modal: 0 24px 64px rgba(0,0,0,0.22);
+}
+
+// ─── Global Layout Utilities ──────────────────────────────────────────────────
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.break-all { word-break: break-all; }
+
+// Scrollbars
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: v.$radius-full;
+  &:hover { background: var(--scrollbar-thumb-hover); }
+}
+
+// Tauri drag region
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  cursor: default;
+  user-select: none;
+}

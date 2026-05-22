@@ -1,0 +1,54 @@
+# src-tauri/Cargo.toml
+
+[package]
+name    = "tonerscope"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "tonerscope_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "tonerscope"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri      = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-shell  = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs     = "2"
+tauri-plugin-notification = "2"
+
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+tokio      = { version = "1", features = ["full"] }
+
+# SNMP
+snmp       = "0.2"
+
+# Async & networking
+ipnetwork  = "0.20"
+
+# Database
+rusqlite   = { version = "0.31", features = ["bundled"] }
+
+# Logging
+log        = "0.4"
+env_logger = "0.11"
+
+# Tauri managed state
+parking_lot = "0.12"
+uuid        = { version = "1", features = ["v4"] }
+chrono      = { version = "0.4", features = ["serde"] }
+
+[profile.release]
+opt-level  = "z"   # optimize for binary size
+lto        = true
+codegen-units = 1
+panic      = "abort"
+strip      = true

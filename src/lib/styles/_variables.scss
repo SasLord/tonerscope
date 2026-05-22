@@ -1,0 +1,96 @@
+// src/lib/styles/_variables.scss
+
+// ─── Typography ───────────────────────────────────────────────────────────────
+$font-mono:    'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+$font-display: 'Syne', sans-serif;
+$font-body:    'Syne', sans-serif;
+
+$font-size-xs:   0.625rem;   // 10px
+$font-size-sm:   0.75rem;    // 12px
+$font-size-base: 0.875rem;   // 14px
+$font-size-md:   1rem;       // 16px
+$font-size-lg:   1.125rem;   // 18px
+$font-size-xl:   1.375rem;   // 22px
+$font-size-2xl:  1.75rem;    // 28px
+$font-size-3xl:  2.25rem;    // 36px
+
+$font-weight-regular: 400;
+$font-weight-medium:  500;
+$font-weight-semibold: 600;
+$font-weight-bold:    700;
+$font-weight-black:   800;
+
+$line-height-tight:  1.2;
+$line-height-normal: 1.5;
+$line-height-loose:  1.75;
+$letter-spacing-tight: -0.03em;
+$letter-spacing-wide:   0.08em;
+$letter-spacing-wider:  0.15em;
+
+// ─── Spacing ──────────────────────────────────────────────────────────────────
+$space-1:  0.25rem;   // 4px
+$space-2:  0.5rem;    // 8px
+$space-3:  0.75rem;   // 12px
+$space-4:  1rem;      // 16px
+$space-5:  1.25rem;   // 20px
+$space-6:  1.5rem;    // 24px
+$space-8:  2rem;      // 32px
+$space-10: 2.5rem;    // 40px
+$space-12: 3rem;      // 48px
+$space-16: 4rem;      // 64px
+
+// ─── Border Radius ────────────────────────────────────────────────────────────
+$radius-sm:   4px;
+$radius-md:   8px;
+$radius-lg:   12px;
+$radius-xl:   16px;
+$radius-2xl:  24px;
+$radius-full: 9999px;
+
+// ─── Transitions ──────────────────────────────────────────────────────────────
+$transition-fast:   100ms ease;
+$transition-base:   200ms ease;
+$transition-slow:   350ms cubic-bezier(0.4, 0, 0.2, 1);
+$transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+// ─── Shadows ──────────────────────────────────────────────────────────────────
+$shadow-sm:  0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+$shadow-md:  0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
+$shadow-lg:  0 8px 28px rgba(0,0,0,0.18), 0 4px 8px rgba(0,0,0,0.12);
+$shadow-xl:  0 20px 48px rgba(0,0,0,0.22), 0 8px 16px rgba(0,0,0,0.14);
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
+$sidebar-width:         220px;
+$sidebar-collapsed-w:   64px;
+$header-height:         56px;
+$content-max-width:     1440px;
+
+// ─── Z-index ──────────────────────────────────────────────────────────────────
+$z-base:    1;
+$z-dropdown: 100;
+$z-sticky:   200;
+$z-overlay:  300;
+$z-modal:    400;
+$z-toast:    500;
+
+// ─── Status Colors (theme-independent) ───────────────────────────────────────
+$status-online:   #22c55e;
+$status-offline:  #71717a;
+$status-printing: #3b82f6;
+$status-error:    #ef4444;
+$status-warning:  #f59e0b;
+$status-unknown:  #a1a1aa;
+
+// Toner level colors
+$toner-ok:       #22c55e;
+$toner-low:      #f59e0b;
+$toner-critical: #ef4444;
+
+// Supply type colors
+$color-black:   #e4e4e7;
+$color-cyan:    #06b6d4;
+$color-magenta: #ec4899;
+$color-yellow:  #eab308;
+$color-drum:    #8b5cf6;
+$color-fuser:   #f97316;
+$color-waste:   #71717a;

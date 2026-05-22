@@ -1,0 +1,39 @@
+# .gitignore
+
+# Dependencies
+node_modules/
+
+# SvelteKit build
+.svelte-kit/
+build/
+
+# Rust / Tauri
+src-tauri/target/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Database (user data — should not be in repo)
+*.db
+*.sqlite
+
+# Tauri updater keys (NEVER commit these)
+src-tauri/*.key
+src-tauri/*.pub
