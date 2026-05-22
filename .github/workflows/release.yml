@@ -83,7 +83,7 @@ jobs:
             libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libssl-dev
 
-      - run: npm ci
+      - run: npm install
 
       - name: Build and upload release assets
         uses: tauri-apps/tauri-action@v0
@@ -107,7 +107,7 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
-      - run: npm ci
+      - run: npm install
       - run: npm run build
       - name: Build portable exe
         run: cargo build --release --manifest-path src-tauri/Cargo.toml
