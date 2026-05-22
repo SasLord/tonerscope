@@ -38,7 +38,7 @@
     {#if !collapsed}
       <div class="sidebar__brand">
         <span class="sidebar__brand-name">TonerScope</span>
-        <span class="sidebar__brand-ver">v0.1.0</span>
+        <span class="sidebar__brand-ver">v0.3.0</span>
       </div>
     {/if}
   </div>

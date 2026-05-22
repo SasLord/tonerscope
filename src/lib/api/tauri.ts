@@ -53,27 +53,41 @@ export interface SnapshotRecord {
 // ─── Фаза 3: статистика истории по расходнику ─────────────────────────────────
 
 export interface SupplyStatRecord {
-  supplyType:   string;
-  supplyName:   string;
-  minPct:       number;
-  maxPct:       number;
-  avgPct:       number;
-  firstPct:     number;
-  lastPct:      number;
+  supplyType:    string;
+  supplyName:    string;
+  minPct:        number;
+  maxPct:        number;
+  avgPct:        number;
+  firstPct:      number;
+  lastPct:       number;
   snapshotCount: number;
-  /// Прогноз дней до 0% (null если нет тренда или данных недостаточно)
-  forecastDays: number | null;
+  /** Прогноз дней до 0% (null если нет тренда или данных недостаточно) */
+  forecastDays:  number | null;
 }
 
 export interface HistoryStatsRecord {
-  printerId:    string;
-  periodDays:   number;
+  printerId:     string;
+  periodDays:    number;
   snapshotCount: number;
-  supplies:     SupplyStatRecord[];
+  supplies:      SupplyStatRecord[];
 }
 
 // AppSettings без theme (Rust-структура не содержит это поле)
 export type AppSettingsRecord = Omit<AppSettings, 'theme'>;
+
+// ─── Фаза 4: правила алертов ──────────────────────────────────────────────────
+
+export interface AlertRuleRecord {
+  id:            string;
+  /** UUID принтера или "all" */
+  printerId:     string;
+  /** Тип расходника (toner_black, drum, …) или "any" */
+  supplyType:    string;
+  /** Порог срабатывания (%) */
+  threshold:     number;
+  enabled:       boolean;
+  notifyDesktop: boolean;
+}
 
 // ─── Payloads событий ─────────────────────────────────────────────────────────
 
@@ -130,7 +144,6 @@ export const api = {
     inv('get_snapshots', { printer_id: printerId, limit }),
 
   // ── История: агрегированная статистика (Фаза 3) ───────────────────────────
-  // period_days: 7 | 30 | 90 | 0 (0 = всё время)
   getHistoryStats: (printerId: string, periodDays = 30): Promise<HistoryStatsRecord> =>
     inv('get_history_stats', { printer_id: printerId, period_days: periodDays }),
 
@@ -144,6 +157,18 @@ export const api = {
 
   saveSettings: (settings: AppSettingsRecord): Promise<void> =>
     inv('save_settings', { settings }),
+
+  // ── Правила алертов (Фаза 4) ──────────────────────────────────────────────
+
+  getAlertRules: (): Promise<AlertRuleRecord[]> =>
+    inv('get_alert_rules'),
+
+  /** Создаёт или обновляет правило. Фронтенд генерирует id через crypto.randomUUID(). */
+  saveAlertRule: (rule: AlertRuleRecord): Promise<void> =>
+    inv('save_alert_rule', { rule }),
+
+  deleteAlertRule: (id: string): Promise<void> =>
+    inv('delete_alert_rule', { id }),
 
   // ── События Backend → Frontend ────────────────────────────────────────────
 

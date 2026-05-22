@@ -62,18 +62,19 @@ tonerscope/
 │   │   │   │                     динамические import() внутри функций (защита от SSR-краша).
 │   │   │   │                     Экспортирует: api.{getPrinters, addPrinter, removePrinter,
 │   │   │   │                     pollPrinter, getSnapshots, getHistoryStats, scanNetwork,
-│   │   │   │                     getSettings, saveSettings, onPrinterUpdated, onPrinterAlert,
-│   │   │   │                     onScanProgress}
+│   │   │   │                     getSettings, saveSettings, getAlertRules, saveAlertRule,
+│   │   │   │                     deleteAlertRule, onPrinterUpdated, onPrinterAlert, onScanProgress}
 │   │   │   │                     Типы: PrinterRecord, SupplyRecord, PrinterSnapshotRecord,
 │   │   │   │                     SnapshotRecord, HistoryStatsRecord, SupplyStatRecord,
-│   │   │   │                     AppSettingsRecord, UnlistenFn,
+│   │   │   │                     AppSettingsRecord, AlertRuleRecord, UnlistenFn,
 │   │   │   │                     ScanProgressPayload, PrinterUpdatedPayload, PrinterAlertPayload
-│   │   │   └── index.ts       ✅ Barrel re-export из tauri.ts
+│   │   │   └── index.ts       ✅ Barrel re-export из tauri.ts (включая AlertRuleRecord)
 │   │   │
 │   │   ├── components/
 │   │   │   ├── ui/
 │   │   │   │   ├── index.ts           ✅ Barrel export
 │   │   │   │   ├── Button.svelte      ✅ variants: primary/secondary/ghost/danger/outline; loading state
+│   │   │   │   │                         ВАЖНО: только дефолтный <slot />, нет слота prefix/suffix
 │   │   │   │   ├── Badge.svelte       ✅ variants: default/success/warning/error/info/neutral; dot prop
 │   │   │   │   ├── Card.svelte        ✅ padding: none/sm/md/lg; hoverable/clickable/selected
 │   │   │   │   ├── Input.svelte       ✅ types, label, hint, error, prefix/suffix slots
@@ -82,7 +83,7 @@ tonerscope/
 │   │   │   │   ├── Toast.svelte       ✅ Portal-компонент; анимации fly/fade/flip; 4 типа
 │   │   │   │   └── Tooltip.svelte     ✅ positions: top/bottom/left/right; delay prop
 │   │   │   │
-│   │   │   ├── charts/                ✅ НОВАЯ ПАПКА — Фаза 3
+│   │   │   ├── charts/
 │   │   │   │   ├── index.ts           ✅ Barrel export
 │   │   │   │   └── SparklineChart.svelte ✅ Интерактивный SVG-график:
 │   │   │   │                               - hover-tooltip (дата + процент)
@@ -116,10 +117,20 @@ tonerscope/
 │   │   │   │                     selectedPrinterId, initPrinters(), destroyPrinters(), mergeSnapshot()
 │   │   │   ├── settings.ts    ✅ AppSettings store; theme store — localStorage только внутри
 │   │   │   │                     функций (НЕ на уровне модуля — защита от SSR-краша)
-│   │   │   └── notifications.ts ✅ Toast queue store; success/error/warning/info helpers
+│   │   │   └── notifications.ts ✅ Toast queue store. Паттерн использования:
+│   │   │                          import { notifications } from '$lib/stores/notifications'
+│   │   │                          notifications.success(title, message?)
+│   │   │                          notifications.error(title, message?)
+│   │   │                          notifications.warning(title, message?)
+│   │   │                          notifications.info(title, message?)
+│   │   │                          ВАЖНО: НЕТ именованных экспортов success/error/warning/info —
+│   │   │                          только через объект notifications.
 │   │   │
 │   │   ├── styles/
 │   │   │   ├── _variables.scss  ✅ Дизайн-токены: Syne+JetBrains, spacing, radius, z-index
+│   │   │   │                       ВАЖНО: нет переменной $font-weight-normal.
+│   │   │   │                       Доступные font-weight: $font-weight-regular, $font-weight-medium,
+│   │   │   │                       $font-weight-semibold, $font-weight-bold, $font-weight-black
 │   │   │   ├── _mixins.scss     ✅ respond-to/below, flex-center/between, card-base, scrollbar
 │   │   │   ├── _animations.scss ✅ fadeIn, fadeInUp, pulse, spin, scanLine, shimmer; skeleton
 │   │   │   ├── _reset.scss      ✅ Современный CSS reset
@@ -145,13 +156,17 @@ tonerscope/
 │       │   └── +page.svelte   ✅ Реальный invoke('scan_network') + listen('scan-progress').
 │       │                         Прогресс-бар, лог, результаты, импорт через api.addPrinter()
 │       ├── history/
-│       │   └── +page.svelte   ✅ ПЕРЕРАБОТАНА В ФАЗЕ 3. Реальные снапшоты из api.getSnapshots().
+│       │   └── +page.svelte   ✅ Реальные снапшоты из api.getSnapshots().
 │       │                         Интерактивные графики SparklineChart. Фильтр периода (7/30/90/all).
 │       │                         Сводная строка статистики. Прогноз расхода (МНК).
 │       │                         Раскрывающаяся таблица снапшотов с Δ. Экспорт в CSV.
 │       │                         Кеш снапшотов по printer.id — смена периода без повторных запросов.
 │       ├── alerts/
-│       │   └── +page.svelte   ✅ Три секции: критические / заканчиваются / недоступны
+│       │   └── +page.svelte   ✅ ПЕРЕРАБОТАНА В ФАЗЕ 4. Две секции:
+│       │                         1. Текущее состояние (критические / заканчиваются / недоступны)
+│       │                         2. CRUD правил уведомлений: таблица правил, toggle enabled/desktop,
+│       │                            модалка добавления/редактирования с range-слайдером порога,
+│       │                            выбор принтера и типа расходника, кнопки удаления
 │       └── settings/
 │           └── +page.svelte   ✅ Загрузка из api.getSettings() в onMount.
 │                                 Сохранение через api.saveSettings() (без поля theme — только SQLite-поля).
@@ -159,7 +174,7 @@ tonerscope/
 │
 ├── src-tauri/
 │   ├── build.rs               ✅ tauri_build::build()
-│   ├── Cargo.toml             ✅ Все зависимости
+│   ├── Cargo.toml             ✅ Все зависимости включая tauri-plugin-notification = "2"
 │   ├── tauri.conf.json        ✅ Tauri v2 конфиг; window 1200x780; bundle targets: all
 │   │
 │   ├── capabilities/
@@ -170,7 +185,7 @@ tonerscope/
 │   └── src/
 │       ├── main.rs            ✅ windows_subsystem="windows"; вызов lib::run()
 │       ├── lib.rs             ✅ Tauri Builder; setup DB + scheduler; invoke_handler со всеми
-│       │                         командами включая get_snapshots и get_history_stats
+│       │                         командами включая get_alert_rules, save_alert_rule, delete_alert_rule
 │       │
 │       ├── snmp/
 │       │   ├── mod.rs         ✅ pub use client::{...}
@@ -182,19 +197,25 @@ tonerscope/
 │       │   └── network.rs     ✅ NetworkScanner::scan_subnet(); async JoinSet
 │       │
 │       ├── db/
-│       │   ├── mod.rs         ✅ Database struct; get_snapshots(printer_id, limit: i64);
-│       │   │                     get_history_stats(printer_id, period_days: i64) — агрегирует
-│       │   │                     снапшоты за период: min/max/avg/first/last + МНК-прогноз.
+│       │   ├── mod.rs         ✅ Database struct; методы:
+│       │   │                     get_snapshots(printer_id, limit: i64)
+│       │   │                     get_history_stats(printer_id, period_days: i64) — МНК-прогноз
+│       │   │                     get_alert_rules() → Vec<AlertRule>
+│       │   │                     save_alert_rule(rule: &AlertRule) — upsert по id
+│       │   │                     delete_alert_rule(id: &str)
 │       │   │                     Вспомогательная fn compute_forecast_days(pts) — МНК по 30 точкам.
 │       │   └── models.rs      ✅ #[serde(rename_all = "camelCase")] на всех структурах.
 │       │                         SnapshotRecord: id: Option<i64> с skip_serializing_if.
 │       │                         AppSettings без поля theme.
-│       │                         SupplyStatRecord: статистика расходника за период + forecast_days.
-│       │                         HistoryStatsRecord: итог get_history_stats (printer_id,
-│       │                         period_days, snapshot_count, supplies: Vec<SupplyStatRecord>).
+│       │                         SupplyStatRecord + HistoryStatsRecord (Фаза 3).
+│       │                         AlertRule: id, printer_id, supply_type, threshold, enabled,
+│       │                         notify_desktop (Фаза 4).
 │       │
 │       ├── commands/
-│       │   ├── mod.rs         ✅ pub mod printer/scanner/settings
+│       │   ├── mod.rs         ✅ pub mod alerts/printer/scanner/settings
+│       │   ├── alerts.rs      ✅ НОВЫЙ ФАЙЛ (Фаза 4):
+│       │   │                     get_alert_rules, save_alert_rule(rule: AlertRule),
+│       │   │                     delete_alert_rule(id: String)
 │       │   ├── printer.rs     ✅ get_printers, add_printer, remove_printer, poll_printer,
 │       │   │                     get_snapshots(printer_id, limit: Option<i64>),
 │       │   │                     get_history_stats(printer_id, period_days: Option<i64>)
@@ -202,7 +223,14 @@ tonerscope/
 │       │   └── settings.rs    ✅ get_settings, save_settings
 │       │
 │       └── scheduler/
-│           └── mod.rs         ✅ Бесконечный loop; poll_all(); emit "printer-updated" + "printer-alert"
+│           └── mod.rs         ✅ Бесконечный loop; poll_all(); emit "printer-updated" +
+│                                 "printer-alert". В Фазе 4 добавлено:
+│                                 — загружает alert_rules из БД перед каждым циклом опроса
+│                                 — для каждого расходника проверяет совпадение по printer_id,
+│                                   supply_type и threshold
+│                                 — вызывает send_desktop_notification() через
+│                                   tauri_plugin_notification::NotificationExt
+│                                 — percent: u8 → i32::from(supply.percent) при сравнении
 │
 ├── static/
 │   ├── favicon.png            ⚠️  Заглушка
@@ -238,151 +266,108 @@ tonerscope/
 
 ## ✅ Статус Фазы 2 — ЗАВЕРШЕНА
 
-### Что реализовано
-
 - ✅ **`src/lib/api/tauri.ts`** — полная типизированная IPC-обёртка. Все импорты из
-  `@tauri-apps/api` — **динамические** (`await import(...)`) внутри функций. Статических
-  импортов нет нигде, кроме этого файла. `browser` guard на всех методах.
+  `@tauri-apps/api` — **динамические** (`await import(...)`) внутри функций. `browser` guard.
 - ✅ **`stores/printers.ts`** — mock удалён. `initPrinters()` / `destroyPrinters()`.
-  `mergeSnapshot()` экспортирован для использования в компонентах.
-- ✅ **`+layout.svelte`** — вызов `initPrinters()` и `api.onPrinterAlert()` через `.then()`
-  (НЕ async onMount). Cleanup возвращается синхронно из onMount.
+- ✅ **`+layout.svelte`** — вызов `initPrinters()` и `api.onPrinterAlert()` через `.then()`.
 - ✅ **`scan/+page.svelte`** — реальный `api.scanNetwork()` + `api.onScanProgress()`.
-  Импорт принтера через `api.addPrinter()`.
-- ✅ **`PrinterDetail.svelte`** — `pollNow()` через `api.pollPrinter(ip)`,
-  удаление через `api.removePrinter(id)`.
-- ✅ **`history/+page.svelte`** — снапшоты из `api.getSnapshots()`. Парсинг `suppliesJson`
-  (camelCase). Кеш по `printer.id`. SVG sparkline с gradient.
-- ✅ **`settings/+page.svelte`** — загрузка из `api.getSettings()` в `onMount`,
-  сохранение без поля `theme` (Rust-структура его не содержит).
-- ✅ **`commands/printer.rs`** — добавлена команда `get_snapshots`.
-- ✅ **`db/mod.rs`** — метод `get_snapshots(printer_id, limit: i64)` с SELECT по id.
-- ✅ **`db/models.rs`** — `SnapshotRecord` с `id: Option<i64>` + `skip_serializing_if`.
-  Все структуры `#[serde(rename_all = "camelCase")]`.
+- ✅ **`PrinterDetail.svelte`** — `pollNow()` через `api.pollPrinter(ip)`.
+- ✅ **`history/+page.svelte`** — снапшоты из `api.getSnapshots()`.
+- ✅ **`settings/+page.svelte`** — загрузка/сохранение без поля `theme`.
+- ✅ **`commands/printer.rs`** — команда `get_snapshots`.
+- ✅ **`db/mod.rs`** — метод `get_snapshots`.
 - ✅ **`lib.rs`** — `get_snapshots` зарегистрирован в `invoke_handler`.
 
 ---
 
 ## ✅ Статус Фазы 3 — ЗАВЕРШЕНА
 
+- ✅ **`SparklineChart.svelte`** — интерактивный SVG-график без сторонних библиотек.
+  Hover-курсор, tooltip, зоны критического уровня, guideline, МНК-прогноз, анимация.
+- ✅ **`history/+page.svelte`** — фильтр периода 7/30/90/all, сетка карточек расходников,
+  сводная строка статистики, раскрывающаяся таблица снапшотов с Δ, экспорт CSV.
+- ✅ **`api/tauri.ts`** — `getHistoryStats`, типы `SupplyStatRecord` и `HistoryStatsRecord`.
+- ✅ **`db/models.rs`** — структуры `SupplyStatRecord`, `HistoryStatsRecord`.
+- ✅ **`db/mod.rs`** — метод `get_history_stats` с МНК-прогнозом.
+- ✅ **`commands/printer.rs`** — команда `get_history_stats`.
+- ✅ **`lib.rs`** — `get_history_stats` зарегистрирован.
+
+---
+
+## ✅ Статус Фазы 4 — ЗАВЕРШЕНА
+
 ### Что реализовано
 
-- ✅ **`src/lib/components/charts/SparklineChart.svelte`** — новый компонент.
-  Чистый SVG, без сторонних библиотек. Интерактивность через mousemove/mouseleave на SVG.
-  - Hover-курсор (вертикальная пунктирная линия) + tooltip с датой и процентом.
-  - Tooltip позиционируется динамически: слева/справа от курсора в зависимости от позиции.
-  - Фоновые зоны: красная (<10%), жёлтая (10–20%).
-  - Горизонтальные guideline на 20%, 50%, 80% (полупрозрачные).
-  - Пунктирная линия прогноза (МНК-экстраполяция по последним 30 точкам).
-  - Бейдж «Прогноз: ~N дн.» под графиком; пульсация при critical (≤7 дней).
-  - Анимация появления основной линии через `stroke-dashoffset`.
-  - Props: `points`, `color`, `supplyType`, `forecastDays`.
-
-- ✅ **`src/lib/components/charts/index.ts`** — barrel export.
-
-- ✅ **`src/routes/history/+page.svelte`** — страница полностью переработана:
-  - Переключатель периода: 7 дн / 30 дн / 90 дн / Всё (сегментный контрол).
-  - Смена периода **без повторного запроса к БД** — фильтрация из кеша.
-  - Сводная строка: кол-во снапшотов, расходников, страниц, время обновления.
-  - Сетка карточек: minmax(260px, 1fr). Каждая карточка содержит:
-    - Dot + название расходника + текущий % + Badge (Крит./Низко).
-    - `SparklineChart` с интерактивным графиком.
-    - Статистика: мин / сред / макс / сейчас (4 колонки).
-    - Раскрывающаяся таблица снапшотов с Δ-изменением между точками.
-    - Кнопка «Показать все N записей» (по умолчанию — последние 10).
-  - Кнопка экспорта в CSV (UTF-8 BOM, кавычки, открывает Save-диалог браузера).
-  - Сортировка расходников: toner_black → cyan → magenta → yellow → drum → fuser → waste.
-  - МНК-прогноз дублирован на фронте (для мгновенной работы при смене периода).
-
-- ✅ **`src/lib/api/tauri.ts`** — добавлены:
-  - `api.getHistoryStats(printerId, periodDays)` → `Promise<HistoryStatsRecord>`.
-  - Типы `SupplyStatRecord` и `HistoryStatsRecord`.
-  - Параметр `limit` в `getSnapshots` увеличен до 365 (был 90).
-
-- ✅ **`src-tauri/src/db/models.rs`** — добавлены структуры:
+- ✅ **`src-tauri/src/db/models.rs`** — добавлена структура:
   ```rust
-  pub struct SupplyStatRecord {
-      supply_type, supply_name,
-      min_pct, max_pct, avg_pct, first_pct, last_pct,
-      snapshot_count,
-      forecast_days: Option<i64>,   // МНК-прогноз дней до 0%
-  }
-  pub struct HistoryStatsRecord {
-      printer_id, period_days, snapshot_count,
-      supplies: Vec<SupplyStatRecord>,
+  pub struct AlertRule {
+      pub id:             String,
+      pub printer_id:     String,  // UUID или "all"
+      pub supply_type:    String,  // тип расходника или "any"
+      pub threshold:      i64,     // порог (%)
+      pub enabled:        bool,
+      pub notify_desktop: bool,
   }
   ```
 
-- ✅ **`src-tauri/src/db/mod.rs`** — добавлен метод `get_history_stats`:
-  - Фильтрация по `period_days` (0 = всё время) через `datetime('now', '-N days')`.
-  - Один проход по снапшотам — парсинг JSON расходников, агрегация в HashMap.
-  - Функция `compute_forecast_days(pts)` — МНК по последним 30 точкам.
-  - Сортировка расходников по типу (тонеры первыми).
+- ✅ **`src-tauri/src/db/mod.rs`** — таблица `alert_rules` в `init_schema()` (CREATE IF NOT EXISTS).
+  Три новых метода: `get_alert_rules()`, `save_alert_rule()` (upsert), `delete_alert_rule()`.
 
-- ✅ **`src-tauri/src/commands/printer.rs`** — добавлена команда:
+- ✅ **`src-tauri/src/commands/alerts.rs`** — новый файл:
   ```rust
-  pub fn get_history_stats(db, printer_id: String, period_days: Option<i64>)
-      -> Result<HistoryStatsRecord, String>
+  #[tauri::command] pub fn get_alert_rules(...)  -> Result<Vec<AlertRule>, String>
+  #[tauri::command] pub fn save_alert_rule(rule: AlertRule) -> Result<(), String>
+  #[tauri::command] pub fn delete_alert_rule(id: String) -> Result<(), String>
   ```
 
-- ✅ **`src-tauri/src/lib.rs`** — `get_history_stats` зарегистрирован в `invoke_handler`.
+- ✅ **`src-tauri/src/commands/mod.rs`** — добавлен `pub mod alerts`.
 
-### Архитектурные решения Фазы 3
+- ✅ **`src-tauri/src/lib.rs`** — три новые команды зарегистрированы в `invoke_handler`.
 
-#### 1. Прогноз дублирован на фронте и бэке
-`SparklineChart.svelte` вычисляет прогноз локально из `points` — для мгновенного обновления
-при смене периода без дополнительного IPC-вызова. `get_history_stats` также возвращает
-`forecast_days` — для будущего использования на dashboard и в алертах.
+- ✅ **`src-tauri/src/scheduler/mod.rs`** — переработан `poll_all()`:
+  - Загружает `alert_rules` из БД в начале каждого цикла.
+  - Для каждого расходника снапшота проверяет все активные правила:
+    `r.printer_id == "all" || == printer_id`, `r.supply_type == "any" || == supply_type`,
+    `i32::from(supply.percent) <= r.threshold as i32`.
+  - При совпадении вызывает `send_desktop_notification()` через
+    `tauri_plugin_notification::NotificationExt`.
+  - Исправлен тип: `supply.percent: u8` → `i32::from(supply.percent)` при сравнении и передаче.
 
-#### 2. Кеш снапшотов — 365 записей максимум
-`api.getSnapshots(printerId, 365)` загружается один раз. При смене периода — фильтрация
-`snapshots.filter(s => new Date(s.timestamp) >= cutoff)` локально в браузере.
-Инвалидация кеша не предусмотрена — достаточно для текущего объёма данных.
+- ✅ **`src/lib/api/tauri.ts`** — добавлен интерфейс `AlertRuleRecord` и три метода:
+  ```typescript
+  getAlertRules(): Promise<AlertRuleRecord[]>
+  saveAlertRule(rule: AlertRuleRecord): Promise<void>   // invoke('save_alert_rule', { rule })
+  deleteAlertRule(id: string): Promise<void>             // invoke('delete_alert_rule', { id })
+  ```
 
-#### 3. Таблица снапшотов — lazy-reveal
-По умолчанию последние 10 записей. Кнопка «Показать все N» раскрывает полный список.
-`max-height: 240px` + кастомный скроллбар.
+- ✅ **`src/lib/api/index.ts`** — добавлен реэкспорт `AlertRuleRecord`.
 
-#### 4. Экспорт CSV
-Генерируется в браузере через `Blob` + `URL.createObjectURL`. UTF-8 BOM (`\uFEFF`)
-для корректного открытия в Excel. Имя файла: `tonerscope-{printer}-{period}.csv`.
+- ✅ **`src/routes/alerts/+page.svelte`** — полностью переработана:
+  - **Секция 1 — Текущее состояние:** критические / заканчиваются / недоступны (компактный вид).
+  - **Секция 2 — Правила уведомлений:**
+    - Таблица правил: 6 колонок (принтер, расходник, порог, desktop-toggle, enabled-toggle, actions).
+    - Toggle `enabled` через `toggle-switch` компонент прямо в строке.
+    - Toggle `notifyDesktop` через icon-кнопку (bell icon).
+    - Кнопки редактирования (pencil) и удаления (trash) для каждой строки.
+    - Empty state с иллюстрацией и кнопкой «Создать первое правило».
+    - Skeleton loader при загрузке.
+    - **Модалка добавления/редактирования:**
+      - Select принтера (all + список из store).
+      - Select типа расходника (any + 7 типов).
+      - Range-слайдер порога 1–99% с live-цветом и метками Крит/Низко/Норма.
+      - Чекбоксы: Desktop-уведомления + Правило активно.
+    - UUID генерируется на фронте через `crypto.randomUUID()`.
+
+### Исправленные баги Фазы 4
+
+- `v.$font-weight-normal` → не существует, убран (использован дефолтный вес).
+- `import { success, error }` → не именованные экспорты; заменено на `notifications.success()`.
+- `<svg slot="prefix">` в Button → Button не имеет слота prefix; SVG инлайном в дефолтный slot.
+- `supply.percent: u8` vs `r.threshold as i32` → исправлено через `i32::from(supply.percent)`.
 
 ---
 
 ## 🗺 Планы по фазам
-
-### Фаза 4 — Уведомления и алерты (следующий шаг)
-
-**Цель:** полноценный CRUD правил алертов и Desktop-уведомления.
-
-- [ ] Таблица `alert_rules` в SQLite:
-  ```sql
-  CREATE TABLE alert_rules (
-      id           TEXT PRIMARY KEY,
-      printer_id   TEXT NOT NULL DEFAULT 'all',
-      supply_type  TEXT NOT NULL DEFAULT 'any',
-      threshold    INTEGER NOT NULL DEFAULT 20,
-      enabled      INTEGER NOT NULL DEFAULT 1,
-      notify_desktop INTEGER NOT NULL DEFAULT 1
-  );
-  ```
-- [ ] Rust-команды: `get_alert_rules`, `save_alert_rule`, `delete_alert_rule`
-- [ ] Страница `alerts/+page.svelte` — переработать из «просмотра состояния» в CRUD-форму:
-  - Таблица правил с toggle enabled/disabled
-  - Форма добавления: выбор принтера (all/конкретный), тип расходника, порог
-  - Кнопка удаления правила
-- [ ] Desktop-уведомления через `tauri-plugin-notification`:
-  ```rust
-  use tauri_plugin_notification::NotificationExt;
-  app.notification().builder()
-     .title("TonerScope: Низкий тонер")
-     .body(format!("{}: {}%", printer_name, percent))
-     .show()?;
-  ```
-- [ ] Scheduler читает `alert_rules` из БД перед отправкой алертов
-- [ ] Настройка: не беспокоить в нерабочее время (поле `quiet_hours` в AppSettings)
-
----
 
 ### Фаза 5 — Иконки и брендинг
 
@@ -404,7 +389,7 @@ tonerscope/
 - [ ] Batch-опрос выбранных принтеров
 
 #### 6.3 Экспорт отчётов
-- [ ] Отчёт расхода тонера за период (уже частично реализован в Фазе 3 через CSV)
+- [ ] Отчёт расхода тонера за период (уже частично реализован через CSV в Фазе 3)
 - [ ] Список всех принтеров в CSV
 
 #### 6.4 SNMP v3
@@ -430,6 +415,9 @@ tonerscope/
 | `scan_network` | `subnet: String` | `Vec<ScanResult>` | ✅ |
 | `get_settings` | — | `AppSettings` | ✅ |
 | `save_settings` | `settings: AppSettings` | `()` | ✅ |
+| `get_alert_rules` | — | `Vec<AlertRule>` | ✅ |
+| `save_alert_rule` | `rule: AlertRule` | `()` | ✅ |
+| `delete_alert_rule` | `id: String` | `()` | ✅ |
 
 ### Важно: передача параметров invoke
 
@@ -437,15 +425,14 @@ tonerscope/
 независимо от `serde(rename_all)`:
 
 ```typescript
-// get_snapshots принимает printer_id (snake_case — имя аргумента функции)
 invoke('get_snapshots', { printer_id: printerId, limit })
-
-// get_history_stats
 invoke('get_history_stats', { printer_id: printerId, period_days: 30 })
+invoke('save_alert_rule', { rule })   // rule — объект AlertRuleRecord (camelCase поля)
+invoke('delete_alert_rule', { id })
 
-// НО данные возвращаются в camelCase (serde rename_all = "camelCase")
+// Данные возвращаются в camelCase (serde rename_all = "camelCase")
 // snap.printerId, snap.suppliesJson, snap.pageCount
-// stats.snapshotCount, stats.supplies[0].forecastDays
+// rule.printerId, rule.supplyType, rule.notifyDesktop
 ```
 
 ### События (Backend → Frontend)
@@ -489,15 +476,14 @@ CREATE TABLE settings (
     value TEXT NOT NULL               -- JSON строка для 'app_settings'
 );
 
--- Фаза 4 (планируется):
--- CREATE TABLE alert_rules (
---     id             TEXT PRIMARY KEY,
---     printer_id     TEXT NOT NULL DEFAULT 'all',
---     supply_type    TEXT NOT NULL DEFAULT 'any',
---     threshold      INTEGER NOT NULL DEFAULT 20,
---     enabled        INTEGER NOT NULL DEFAULT 1,
---     notify_desktop INTEGER NOT NULL DEFAULT 1
--- );
+CREATE TABLE alert_rules (
+    id             TEXT PRIMARY KEY,   -- UUID v4, генерируется на фронте
+    printer_id     TEXT NOT NULL DEFAULT 'all',   -- UUID или "all"
+    supply_type    TEXT NOT NULL DEFAULT 'any',   -- тип или "any"
+    threshold      INTEGER NOT NULL DEFAULT 20,   -- порог (%)
+    enabled        INTEGER NOT NULL DEFAULT 1,    -- 0/1
+    notify_desktop INTEGER NOT NULL DEFAULT 1     -- 0/1
+);
 ```
 
 **Путь к файлу БД:**
@@ -574,7 +560,14 @@ $space-1: 0.25rem;  $space-2: 0.5rem;   $space-3: 0.75rem;
 $space-4: 1rem;     $space-6: 1.5rem;   $space-8: 2rem;
 
 // Radius
-$radius-sm: 4px;  $radius-md: 8px;  $radius-lg: 12px;  $radius-xl: 16px;
+$radius-sm: 4px;  $radius-md: 8px;  $radius-lg: 12px;  $radius-xl: 16px;  $radius-full: 9999px;
+
+// Font weights (ВАЖНО: нет $font-weight-normal!)
+$font-weight-regular:  400;
+$font-weight-medium:   500;
+$font-weight-semibold: 600;
+$font-weight-bold:     700;
+$font-weight-black:    800;
 
 // Transitions
 $transition-fast: 100ms ease;
@@ -600,6 +593,26 @@ $z-dropdown: 100;  $z-overlay: 300;  $z-modal: 400;  $z-toast: 500;
 @include m.glass(12px, 0.08)      // backdrop-filter blur
 @include m.text-mono($size)
 @include m.text-label             // mono + uppercase + letter-spacing
+```
+
+### Компонент Button — важно
+```svelte
+<!-- Button имеет ТОЛЬКО дефолтный <slot />, нет именованных слотов prefix/suffix -->
+<!-- SVG-иконки инлайном внутри тега Button: -->
+<Button variant="primary" on:click={handler}>
+  <svg width="14" height="14" ...>...</svg>
+  Текст кнопки
+</Button>
+```
+
+### Компонент notifications — важно
+```typescript
+// ТОЛЬКО через объект notifications, НЕТ именованных экспортов:
+import { notifications } from '$lib/stores/notifications';
+notifications.success('Заголовок', 'опциональное сообщение');
+notifications.error('Заголовок');
+notifications.warning('Заголовок');
+notifications.info('Заголовок');
 ```
 
 ---
@@ -667,8 +680,8 @@ sudo apt-get install -y \
 ## 💬 Контекст для нового диалога
 
 > Продолжаем разработку TonerScope — приложения для мониторинга сетевых принтеров
-> на Tauri v2 + SvelteKit + SCSS. Фазы 1, 2 и 3 завершены.
-> Нужно реализовать Фазу 4: CRUD правил алертов и Desktop-уведомления.
+> на Tauri v2 + SvelteKit + SCSS. Фазы 1, 2, 3 и 4 завершены.
+> Следующий шаг — Фаза 5: иконки и брендинг, или Фаза 6: дополнительные функции.
 > Полное состояние проекта в файле PROJECT_STATUS.md.
 
 ---
@@ -690,11 +703,22 @@ sudo apt-get install -y \
 
 6. **`prerender = false`** в `+layout.ts`. Только `ssr = false`.
 
-7. **`--surface-3`** — используется в SparklineChart для tooltip. Убедиться что CSS-переменная
-   определена в `app.scss` для обеих тем.
+7. **`--surface-3`** — используется в SparklineChart для tooltip. CSS-переменная определена
+   в `app.scss` для обеих тем.
+
+8. **`Button.svelte` — нет слота `prefix`**. SVG-иконки инлайном внутри дефолтного `<slot>`.
+
+9. **`notifications` — нет именованных экспортов** `success`/`error`/`warning`/`info`.
+   Только `notifications.success()` / `notifications.error()` и т.д.
+
+10. **`$font-weight-normal` не существует** в `_variables.scss`. Использовать
+    `$font-weight-regular` (400) или просто не указывать font-weight (браузерный дефолт).
+
+11. **`supply.percent` имеет тип `u8`** в Rust. При сравнении с `i32` или `i64` использовать
+    явное приведение: `i32::from(supply.percent)` или `supply.percent.into()`.
 
 ---
 
-*Последнее обновление: Фаза 3 завершена.*
-*Реализованы интерактивные графики истории тонера с hover-tooltip, фильтром периода,*
-*МНК-прогнозом расхода и экспортом CSV.*
+*Последнее обновление: Фаза 4 завершена.*
+*Реализованы CRUD правил алертов (таблица alert_rules в SQLite, три Tauri-команды,*
+*полноценный UI с таблицей/модалкой/toggle) и desktop-уведомления через tauri-plugin-notification.*

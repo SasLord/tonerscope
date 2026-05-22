@@ -9,6 +9,7 @@ export type {
   HistoryStatsRecord,
   SupplyStatRecord,
   AppSettingsRecord,
+  AlertRuleRecord,
   ScanProgressPayload,
   PrinterUpdatedPayload,
   PrinterAlertPayload,

@@ -4,7 +4,10 @@ pub mod models;
 
 use rusqlite::{Connection, Result, params};
 use std::path::Path;
-use models::{PrinterRecord, SnapshotRecord, AppSettings, HistoryStatsRecord, SupplyStatRecord};
+use models::{
+    PrinterRecord, SnapshotRecord, AppSettings,
+    HistoryStatsRecord, SupplyStatRecord, AlertRule,
+};
 
 pub struct Database {
     conn: Connection,
@@ -51,6 +54,15 @@ impl Database {
             CREATE TABLE IF NOT EXISTS settings (
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS alert_rules (
+                id             TEXT PRIMARY KEY,
+                printer_id     TEXT NOT NULL DEFAULT 'all',
+                supply_type    TEXT NOT NULL DEFAULT 'any',
+                threshold      INTEGER NOT NULL DEFAULT 20,
+                enabled        INTEGER NOT NULL DEFAULT 1,
+                notify_desktop INTEGER NOT NULL DEFAULT 1
             );
         ")?;
         Ok(())
@@ -147,7 +159,6 @@ impl Database {
         printer_id: &str,
         period_days: i64,
     ) -> Result<HistoryStatsRecord> {
-        // Временная метка начала периода
         let since_clause = if period_days > 0 {
             format!(
                 "AND timestamp >= datetime('now', '-{} days')",
@@ -157,7 +168,6 @@ impl Database {
             String::new()
         };
 
-        // Общее число снапшотов за период
         let snapshot_count: i64 = self.conn.query_row(
             &format!(
                 "SELECT COUNT(*) FROM snapshots WHERE printer_id = ?1 {since_clause}"
@@ -166,7 +176,6 @@ impl Database {
             |r| r.get(0),
         )?;
 
-        // Читаем все снапшоты за период (хронологически, старые первые)
         let mut stmt = self.conn.prepare(&format!(
             "SELECT timestamp, supplies_json
              FROM snapshots
@@ -174,10 +183,9 @@ impl Database {
              ORDER BY timestamp ASC"
         ))?;
 
-        // Структура: supply_type -> Vec<(unix_days: f64, pct: i64)>
         let mut supply_series: std::collections::HashMap<
             String,
-            (String, Vec<(f64, i64)>),   // (name, points)
+            (String, Vec<(f64, i64)>),
         > = std::collections::HashMap::new();
 
         let epoch = chrono::DateTime::parse_from_rfc3339("1970-01-01T00:00:00Z")
@@ -185,7 +193,7 @@ impl Database {
             .timestamp() as f64;
 
         let rows = stmt.query_map(params![printer_id], |row| {
-            let ts: String  = row.get(0)?;
+            let ts: String   = row.get(0)?;
             let json: String = row.get(1)?;
             Ok((ts, json))
         })?;
@@ -213,7 +221,6 @@ impl Database {
             }
         }
 
-        // Строим SupplyStatRecord для каждого расходника
         let mut supplies: Vec<SupplyStatRecord> = supply_series
             .into_iter()
             .map(|(stype, (sname, pts))| {
@@ -228,7 +235,6 @@ impl Database {
                 let last_pct  = pcts.last().copied().unwrap_or(0);
                 let snapshot_count = pcts.len() as i64;
 
-                // МНК-прогноз (минимум 3 точки)
                 let forecast_days = if pts.len() >= 3 {
                     compute_forecast_days(&pts)
                 } else {
@@ -249,7 +255,6 @@ impl Database {
             })
             .collect();
 
-        // Стабильная сортировка: тонеры вперёд
         let order = |t: &str| match t {
             "toner_black"   => 0u8,
             "toner_cyan"    => 1,
@@ -308,6 +313,60 @@ impl Database {
             .map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?;
         self.set_setting("app_settings", &json)
     }
+
+    // ── Alert Rules (Фаза 4) ──────────────────────────────────────────────────
+
+    /// Возвращает все правила алертов, отсортированные по threshold DESC.
+    pub fn get_alert_rules(&self) -> Result<Vec<AlertRule>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, printer_id, supply_type, threshold, enabled, notify_desktop
+             FROM alert_rules
+             ORDER BY threshold DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(AlertRule {
+                id:             row.get(0)?,
+                printer_id:     row.get(1)?,
+                supply_type:    row.get(2)?,
+                threshold:      row.get(3)?,
+                enabled:        row.get::<_, i32>(4)? != 0,
+                notify_desktop: row.get::<_, i32>(5)? != 0,
+            })
+        })?;
+        rows.collect()
+    }
+
+    /// Вставляет или обновляет правило алерта (upsert по id).
+    pub fn save_alert_rule(&self, r: &AlertRule) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO alert_rules (id, printer_id, supply_type, threshold, enabled, notify_desktop)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(id) DO UPDATE SET
+               printer_id     = excluded.printer_id,
+               supply_type    = excluded.supply_type,
+               threshold      = excluded.threshold,
+               enabled        = excluded.enabled,
+               notify_desktop = excluded.notify_desktop",
+            params![
+                r.id,
+                r.printer_id,
+                r.supply_type,
+                r.threshold,
+                r.enabled as i32,
+                r.notify_desktop as i32,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Удаляет правило по id.
+    pub fn delete_alert_rule(&self, id: &str) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM alert_rules WHERE id = ?1",
+            params![id],
+        )?;
+        Ok(())
+    }
 }
 
 // ─── Вспомогательная функция: МНК-прогноз ────────────────────────────────────
@@ -335,7 +394,6 @@ fn compute_forecast_days(pts: &[(f64, i64)]) -> Option<i64> {
     let slope     = (n * sum_xy - sum_x * sum_y) / denom;
     let intercept = (sum_y - slope * sum_x) / n;
 
-    // Прогноз только при заметном убывании
     if slope >= -0.01 {
         return None;
     }

@@ -54,7 +54,7 @@ impl Default for AppSettings {
     }
 }
 
-// ─── Фаза 3: агрегированная статистика истории тонера ──────────────────────────
+// ─── Фаза 3: агрегированная статистика истории тонера ─────────────────────────
 
 /// Статистика по одному расходнику за период.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,4 +81,22 @@ pub struct HistoryStatsRecord {
     pub period_days:    i64,
     pub snapshot_count: i64,
     pub supplies:       Vec<SupplyStatRecord>,
+}
+
+// ─── Фаза 4: правила алертов ──────────────────────────────────────────────────
+
+/// Правило алерта. printer_id = "all" означает «любой принтер».
+/// supply_type = "any" означает «любой расходник».
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlertRule {
+    pub id:             String,
+    /// UUID принтера или "all"
+    pub printer_id:     String,
+    /// Тип расходника (toner_black, drum, …) или "any"
+    pub supply_type:    String,
+    /// Порог срабатывания (%)
+    pub threshold:      i64,
+    pub enabled:        bool,
+    pub notify_desktop: bool,
 }
