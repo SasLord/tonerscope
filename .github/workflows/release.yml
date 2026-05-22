@@ -48,15 +48,10 @@ jobs:
             args: ''
             label: linux
 
-          # macOS ARM — нативный ARM runner, собирает aarch64 без кросс-компиляции
+          # macOS ARM (M1/M2/M3) — нативный ARM runner
           - platform: macos-latest
             args: '--target aarch64-apple-darwin'
             label: macos-arm
-
-          # macOS Intel — нативный x86_64 runner (macos-13), собирает x86_64 без кросс-компиляции
-          - platform: macos-13
-            args: '--target x86_64-apple-darwin'
-            label: macos-x86
 
           # Windows: .msi + NSIS setup
           - platform: windows-latest
@@ -75,7 +70,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.label == 'macos-arm' && 'aarch64-apple-darwin' || matrix.label == 'macos-x86' && 'x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.label == 'macos-arm' && 'aarch64-apple-darwin' || '' }}
 
       - uses: swatinem/rust-cache@v2
         with:
