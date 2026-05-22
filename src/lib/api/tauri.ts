@@ -50,6 +50,28 @@ export interface SnapshotRecord {
   suppliesJson: string;
 }
 
+// ─── Фаза 3: статистика истории по расходнику ─────────────────────────────────
+
+export interface SupplyStatRecord {
+  supplyType:   string;
+  supplyName:   string;
+  minPct:       number;
+  maxPct:       number;
+  avgPct:       number;
+  firstPct:     number;
+  lastPct:      number;
+  snapshotCount: number;
+  /// Прогноз дней до 0% (null если нет тренда или данных недостаточно)
+  forecastDays: number | null;
+}
+
+export interface HistoryStatsRecord {
+  printerId:    string;
+  periodDays:   number;
+  snapshotCount: number;
+  supplies:     SupplyStatRecord[];
+}
+
 // AppSettings без theme (Rust-структура не содержит это поле)
 export type AppSettingsRecord = Omit<AppSettings, 'theme'>;
 
@@ -104,9 +126,13 @@ export const api = {
     inv('poll_printer', { ip }),
 
   // ── Снапшоты ──────────────────────────────────────────────────────────────
-  // Rust принимает snake_case имена аргументов команды (не serde-поля)
-  getSnapshots: (printerId: string, limit = 90): Promise<SnapshotRecord[]> =>
+  getSnapshots: (printerId: string, limit = 365): Promise<SnapshotRecord[]> =>
     inv('get_snapshots', { printer_id: printerId, limit }),
+
+  // ── История: агрегированная статистика (Фаза 3) ───────────────────────────
+  // period_days: 7 | 30 | 90 | 0 (0 = всё время)
+  getHistoryStats: (printerId: string, periodDays = 30): Promise<HistoryStatsRecord> =>
+    inv('get_history_stats', { printer_id: printerId, period_days: periodDays }),
 
   // ── Сканирование ──────────────────────────────────────────────────────────
   scanNetwork: (subnet: string): Promise<ScanResult[]> =>

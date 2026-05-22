@@ -42,7 +42,8 @@ pub fn run() {
             commands::printer::add_printer,
             commands::printer::remove_printer,
             commands::printer::poll_printer,
-            commands::printer::get_snapshots,   // <-- Фаза 2
+            commands::printer::get_snapshots,
+            commands::printer::get_history_stats,   // <-- Фаза 3
             commands::scanner::scan_network,
             commands::settings::get_settings,
             commands::settings::save_settings,

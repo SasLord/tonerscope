@@ -4,7 +4,7 @@ pub mod models;
 
 use rusqlite::{Connection, Result, params};
 use std::path::Path;
-use models::{PrinterRecord, SnapshotRecord, AppSettings};
+use models::{PrinterRecord, SnapshotRecord, AppSettings, HistoryStatsRecord, SupplyStatRecord};
 
 pub struct Database {
     conn: Connection,
@@ -137,6 +137,139 @@ impl Database {
         rows.collect()
     }
 
+    // ── History Stats (Фаза 3) ────────────────────────────────────────────────
+
+    /// Агрегирует историю по расходникам за `period_days` дней.
+    /// period_days = 0 означает «всё время».
+    /// Прогноз вычисляется методом наименьших квадратов по последним 30 точкам.
+    pub fn get_history_stats(
+        &self,
+        printer_id: &str,
+        period_days: i64,
+    ) -> Result<HistoryStatsRecord> {
+        // Временная метка начала периода
+        let since_clause = if period_days > 0 {
+            format!(
+                "AND timestamp >= datetime('now', '-{} days')",
+                period_days
+            )
+        } else {
+            String::new()
+        };
+
+        // Общее число снапшотов за период
+        let snapshot_count: i64 = self.conn.query_row(
+            &format!(
+                "SELECT COUNT(*) FROM snapshots WHERE printer_id = ?1 {since_clause}"
+            ),
+            params![printer_id],
+            |r| r.get(0),
+        )?;
+
+        // Читаем все снапшоты за период (хронологически, старые первые)
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT timestamp, supplies_json
+             FROM snapshots
+             WHERE printer_id = ?1 {since_clause}
+             ORDER BY timestamp ASC"
+        ))?;
+
+        // Структура: supply_type -> Vec<(unix_days: f64, pct: i64)>
+        let mut supply_series: std::collections::HashMap<
+            String,
+            (String, Vec<(f64, i64)>),   // (name, points)
+        > = std::collections::HashMap::new();
+
+        let epoch = chrono::DateTime::parse_from_rfc3339("1970-01-01T00:00:00Z")
+            .expect("static parse")
+            .timestamp() as f64;
+
+        let rows = stmt.query_map(params![printer_id], |row| {
+            let ts: String  = row.get(0)?;
+            let json: String = row.get(1)?;
+            Ok((ts, json))
+        })?;
+
+        for row in rows {
+            let (ts, json) = row?;
+
+            let unix_days = chrono::DateTime::parse_from_rfc3339(&ts)
+                .map(|dt| (dt.timestamp() as f64 - epoch) / 86400.0)
+                .unwrap_or(0.0);
+
+            let supplies_raw: Vec<serde_json::Value> =
+                serde_json::from_str(&json).unwrap_or_default();
+
+            for s in &supplies_raw {
+                let stype = s["type"].as_str().unwrap_or("other").to_string();
+                let sname = s["name"].as_str().unwrap_or(&stype).to_string();
+                let pct   = s["percent"].as_i64().unwrap_or(0);
+
+                supply_series
+                    .entry(stype)
+                    .or_insert_with(|| (sname, Vec::new()))
+                    .1
+                    .push((unix_days, pct));
+            }
+        }
+
+        // Строим SupplyStatRecord для каждого расходника
+        let mut supplies: Vec<SupplyStatRecord> = supply_series
+            .into_iter()
+            .map(|(stype, (sname, pts))| {
+                let pcts: Vec<i64> = pts.iter().map(|(_, p)| *p).collect();
+
+                let min_pct   = *pcts.iter().min().unwrap_or(&0);
+                let max_pct   = *pcts.iter().max().unwrap_or(&0);
+                let avg_pct   = if pcts.is_empty() { 0 } else {
+                    pcts.iter().sum::<i64>() / pcts.len() as i64
+                };
+                let first_pct = pcts.first().copied().unwrap_or(0);
+                let last_pct  = pcts.last().copied().unwrap_or(0);
+                let snapshot_count = pcts.len() as i64;
+
+                // МНК-прогноз (минимум 3 точки)
+                let forecast_days = if pts.len() >= 3 {
+                    compute_forecast_days(&pts)
+                } else {
+                    None
+                };
+
+                SupplyStatRecord {
+                    supply_type: stype,
+                    supply_name: sname,
+                    min_pct,
+                    max_pct,
+                    avg_pct,
+                    first_pct,
+                    last_pct,
+                    snapshot_count,
+                    forecast_days,
+                }
+            })
+            .collect();
+
+        // Стабильная сортировка: тонеры вперёд
+        let order = |t: &str| match t {
+            "toner_black"   => 0u8,
+            "toner_cyan"    => 1,
+            "toner_magenta" => 2,
+            "toner_yellow"  => 3,
+            "drum"          => 4,
+            "fuser"         => 5,
+            "waste"         => 6,
+            _               => 7,
+        };
+        supplies.sort_by_key(|s| order(&s.supply_type));
+
+        Ok(HistoryStatsRecord {
+            printer_id:     printer_id.to_string(),
+            period_days,
+            snapshot_count,
+            supplies,
+        })
+    }
+
     // ── Settings ──────────────────────────────────────────────────────────────
 
     pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
@@ -174,5 +307,45 @@ impl Database {
         let json = serde_json::to_string(s)
             .map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?;
         self.set_setting("app_settings", &json)
+    }
+}
+
+// ─── Вспомогательная функция: МНК-прогноз ────────────────────────────────────
+
+/// Принимает вектор (unix_days, pct). Использует последние 30 точек.
+/// Возвращает количество дней от последней точки до достижения 0%,
+/// или None если тренд восходящий / плоский.
+fn compute_forecast_days(pts: &[(f64, i64)]) -> Option<i64> {
+    let slice = if pts.len() > 30 { &pts[pts.len() - 30..] } else { pts };
+    let n = slice.len() as f64;
+
+    let xs: Vec<f64> = slice.iter().map(|(x, _)| *x).collect();
+    let ys: Vec<f64> = slice.iter().map(|(_, y)| *y as f64).collect();
+
+    let sum_x  = xs.iter().sum::<f64>();
+    let sum_y  = ys.iter().sum::<f64>();
+    let sum_xy = xs.iter().zip(ys.iter()).map(|(x, y)| x * y).sum::<f64>();
+    let sum_x2 = xs.iter().map(|x| x * x).sum::<f64>();
+
+    let denom = n * sum_x2 - sum_x * sum_x;
+    if denom.abs() < 1e-9 {
+        return None;
+    }
+
+    let slope     = (n * sum_xy - sum_x * sum_y) / denom;
+    let intercept = (sum_y - slope * sum_x) / n;
+
+    // Прогноз только при заметном убывании
+    if slope >= -0.01 {
+        return None;
+    }
+
+    let last_x   = xs[xs.len() - 1];
+    let days_raw = (0.0 - intercept) / slope - last_x;
+
+    if days_raw < 0.0 {
+        Some(0)
+    } else {
+        Some(days_raw.round() as i64)
     }
 }

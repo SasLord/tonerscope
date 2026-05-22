@@ -1,13 +1,16 @@
 // src/lib/api/index.ts
 
-export { api, settingsToRecord, recordToSettings } from './tauri';
+export { api } from './tauri';
 export type {
   PrinterRecord,
   SupplyRecord,
   PrinterSnapshotRecord,
   SnapshotRecord,
+  HistoryStatsRecord,
+  SupplyStatRecord,
   AppSettingsRecord,
   ScanProgressPayload,
   PrinterUpdatedPayload,
   PrinterAlertPayload,
+  UnlistenFn,
 } from './tauri';

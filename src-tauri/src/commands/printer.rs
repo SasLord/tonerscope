@@ -1,6 +1,6 @@
 // src-tauri/src/commands/printer.rs
 
-use crate::db::{Database, models::PrinterRecord, models::SnapshotRecord};
+use crate::db::{Database, models::PrinterRecord, models::SnapshotRecord, models::HistoryStatsRecord};
 use crate::snmp::{SnmpClient, SnmpConfig, PrinterSnapshot};
 use chrono::Utc;
 use std::sync::Mutex;
@@ -84,7 +84,7 @@ pub async fn poll_printer(
             .unwrap_or_else(|_| "[]".into());
         let d = db.lock().map_err(|e| e.to_string())?;
         let _ = d.insert_snapshot(&SnapshotRecord {
-            id:            None,   // автоинкремент — не передаём
+            id:            None,
             printer_id:    ip.clone(),
             timestamp:     Utc::now().to_rfc3339(),
             status:        snapshot.status.clone(),
@@ -106,6 +106,21 @@ pub fn get_snapshots(
 ) -> Result<Vec<SnapshotRecord>, String> {
     db.lock()
         .map_err(|e| e.to_string())?
-        .get_snapshots(&printer_id, limit.unwrap_or(90))
+        .get_snapshots(&printer_id, limit.unwrap_or(365))
+        .map_err(|e| e.to_string())
+}
+
+/// Возвращает агрегированную статистику истории тонера по принтеру.
+/// period_days: 7 | 30 | 90 | 0 (0 = всё время).
+/// Включает МНК-прогноз дней до 0% для каждого расходника.
+#[tauri::command]
+pub fn get_history_stats(
+    db:          DbState,
+    printer_id:  String,
+    period_days: Option<i64>,
+) -> Result<HistoryStatsRecord, String> {
+    db.lock()
+        .map_err(|e| e.to_string())?
+        .get_history_stats(&printer_id, period_days.unwrap_or(30))
         .map_err(|e| e.to_string())
 }

@@ -53,3 +53,32 @@ impl Default for AppSettings {
         }
     }
 }
+
+// ─── Фаза 3: агрегированная статистика истории тонера ──────────────────────────
+
+/// Статистика по одному расходнику за период.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SupplyStatRecord {
+    pub supply_type:    String,
+    pub supply_name:    String,
+    pub min_pct:        i64,
+    pub max_pct:        i64,
+    pub avg_pct:        i64,
+    pub first_pct:      i64,
+    pub last_pct:       i64,
+    pub snapshot_count: i64,
+    /// Линейный прогноз: дней до достижения 0%.
+    /// None — если данных < 3 или тренд восходящий/плоский.
+    pub forecast_days:  Option<i64>,
+}
+
+/// Итоговый ответ команды get_history_stats.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryStatsRecord {
+    pub printer_id:     String,
+    pub period_days:    i64,
+    pub snapshot_count: i64,
+    pub supplies:       Vec<SupplyStatRecord>,
+}

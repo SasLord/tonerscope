@@ -14,7 +14,11 @@ const config = {
       fallback: 'index.html',
     }),
     alias: {
-      $lib: './src/lib',
+      $lib:                 './src/lib',
+      '$app/environment':   './.svelte-kit/ambient.d.ts',
+      '$app/stores':        './.svelte-kit/ambient.d.ts',
+      '$app/navigation':    './.svelte-kit/ambient.d.ts',
+      '$app/paths':         './.svelte-kit/ambient.d.ts',
     },
   },
 };

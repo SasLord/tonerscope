@@ -1,7 +1,7 @@
 <!-- src/lib/components/ui/Input.svelte -->
 
 <script lang="ts">
-  export let value    = '';
+  export let value:    string | number = '';
   export let type:    'text' | 'password' | 'number' | 'email' | 'search' = 'text';
   export let placeholder = '';
   export let label    = '';
@@ -10,7 +10,16 @@
   export let disabled = false;
   export let id       = crypto.randomUUID();
 
-  // icon slot support
+  // При type="number" HTML input всегда возвращает string через bind:value,
+  // поэтому конвертируем обратно в number если нужно.
+  function handleInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    if (type === 'number') {
+      value = input.valueAsNumber;
+    } else {
+      value = input.value;
+    }
+  }
 </script>
 
 <div class="field" class:field--error={!!error} class:field--disabled={disabled}>
@@ -23,11 +32,11 @@
     {/if}
     <input
       {id} {type} {placeholder} {disabled}
+      value={value}
       class="field__input"
       class:field__input--prefixed={$$slots.prefix}
       class:field__input--suffixed={$$slots.suffix}
-      bind:value
-      on:input
+      on:input={handleInput}
       on:change
       on:blur
       on:focus
