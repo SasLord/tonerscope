@@ -180,7 +180,14 @@ tonerscope/
 │   ├── capabilities/
 │   │   └── default.json       ✅ Tauri v2 capabilities: core, shell, dialog, fs, notification
 │   │
-│   ├── icons/                 ⚠️  ЗАГЛУШКИ (1x1 PNG) — нужно заменить реальными иконками
+│   ├── icons/                 ✅ ФАЗА 5: SVG-иконки созданы, PNG генерируются через npx tauri icon
+│   │   ├── tonerscope-1024.svg  ✅ Мастер-иконка 1024×1024 (прицел + картридж + уровень тонера)
+│   │   ├── tray-icon.svg        ✅ Монохромная tray-иконка 22×22 (белая для тёмной системной панели)
+│   │   ├── 32x32.png            ⚠️  Генерировать: npx tauri icon src-tauri/icons/tonerscope-1024.png
+│   │   ├── 128x128.png          ⚠️  —//—
+│   │   ├── 128x128@2x.png       ⚠️  —//—
+│   │   ├── icon.icns            ⚠️  —//—
+│   │   └── icon.ico             ⚠️  —//—
 │   │
 │   └── src/
 │       ├── main.rs            ✅ windows_subsystem="windows"; вызов lib::run()
@@ -233,8 +240,8 @@ tonerscope/
 │                                 — percent: u8 → i32::from(supply.percent) при сравнении
 │
 ├── static/
-│   ├── favicon.png            ⚠️  Заглушка
-│   └── favicon.svg            ✅ SVG иконка TonerScope
+│   ├── favicon.png            ⚠️  Генерировать из favicon.svg (32×32 PNG через inkscape/rsvg)
+│   └── favicon.svg            ✅ ФАЗА 5: адаптивный SVG (prefers-color-scheme); прицел+картридж
 │
 ├── .gitignore                 ✅
 ├── package.json               ✅ scripts: dev/build/check/tauri:dev/tauri:build
@@ -360,43 +367,149 @@ tonerscope/
 
 ### Исправленные баги Фазы 4
 
-- `v.$font-weight-normal` → не существует, убран (использован дефолтный вес).
+- `$font-weight-normal` → не существует, убран (использован дефолтный вес).
 - `import { success, error }` → не именованные экспорты; заменено на `notifications.success()`.
 - `<svg slot="prefix">` в Button → Button не имеет слота prefix; SVG инлайном в дефолтный slot.
 - `supply.percent: u8` vs `r.threshold as i32` → исправлено через `i32::from(supply.percent)`.
 
 ---
 
-## 🗺 Планы по фазам
+## ✅ Статус Фазы 5 — ЗАВЕРШЕНА
 
-### Фаза 5 — Иконки и брендинг
+### Что реализовано
 
-- [ ] Создать SVG иконку TonerScope 1024×1024
-- [ ] Сгенерировать все форматы: `npx tauri icon path/to/icon-1024.png`
-- [ ] Tray-иконка: 22×22 монохромная
-- [ ] Заменить `static/favicon.png`
+- ✅ **`static/favicon.svg`** — адаптивная SVG-иконка для браузерной вкладки.
+  Концепт: прицел (scope) + тонер-картридж с полоской уровня.
+  Адаптируется к теме ОС через `@media (prefers-color-scheme)`:
+  тёмная тема: акцент `#00d4aa` / фон `#0d0f12`;
+  светлая тема: акцент `#0099aa` / фон `#f4f6f9`.
+
+- ✅ **`src-tauri/icons/tonerscope-1024.svg`** — мастер-иконка 1024×1024.
+  Скруглённый фон `rx="200"` под все платформы. Три кольца (декоративное / вспомогательное /
+  прицельное), четыре засечки по 45°, крестовина, тонер-картридж с полоской уровня 72%
+  и рядом точек-индикаторов под ней.
+
+- ✅ **`src-tauri/icons/tray-icon.svg`** — монохромная tray-иконка 22×22.
+  По умолчанию белая (для тёмной системной панели). Для светлой — заменить `#ffffff` на `#000000`.
+
+- ⚠️ **PNG-иконки нужно сгенерировать** (делается один раз командой):
+  ```bash
+  # 1. Конвертировать SVG → PNG (любым из способов):
+  inkscape src-tauri/icons/tonerscope-1024.svg \
+    --export-type=png \
+    --export-filename=src-tauri/icons/tonerscope-1024.png \
+    --export-width=1024 --export-height=1024
+
+  # 2. Сгенерировать все форматы для Tauri:
+  npx tauri icon src-tauri/icons/tonerscope-1024.png
+  # Создаст: 32x32.png, 128x128.png, 128x128@2x.png, icon.icns, icon.ico
+  ```
+
+- ⚠️ **favicon.png** — также нужно сгенерировать из favicon.svg (32×32).
+
+- ✅ `tauri.conf.json` → `bundle.icon` уже прописывает правильные пути — ничего менять не нужно.
 
 ---
 
+## 🗺 Планы по фазам
+
 ### Фаза 6 — Дополнительные функции
 
-#### 6.1 Перезапуск Print Spooler (исходная задача)
-- [ ] Tauri команда `restart_spooler(computer: String)` через WinAPI / sc.exe
-- [ ] Кнопка «Перезапустить спулер» на карточке принтера (Windows only)
+#### 6.1 Перезапуск Print Spooler (исходная задача — приоритет)
+- [ ] Tauri команда `restart_spooler(computer: String)` через `sc.exe stop/start spooler`
+      или WinAPI `ControlService` / `StartService`
+- [ ] Кнопка «Перезапустить спулер» на карточке и в панели деталей принтера (Windows only)
+- [ ] Статус операции через Toast
 
 #### 6.2 Групповое управление
-- [ ] Фильтрация по группе на dashboard (поле `group` в DB уже есть)
-- [ ] Batch-опрос выбранных принтеров
+- [ ] Фильтрация по группе на dashboard (поле `grp` в DB уже есть)
+- [ ] Batch-опрос выбранных принтеров (чекбоксы в PrinterGrid)
 
 #### 6.3 Экспорт отчётов
-- [ ] Отчёт расхода тонера за период (уже частично реализован через CSV в Фазе 3)
-- [ ] Список всех принтеров в CSV
+- [ ] Отчёт расхода тонера за период (частично реализован через CSV в Фазе 3)
+- [ ] Список всех принтеров в CSV (с текущими уровнями)
 
 #### 6.4 SNMP v3
 - [ ] Поля в настройках: username, authPassword, privPassword, authProtocol, privProtocol
+- [ ] Поддержка в `snmp/client.rs`
 
 #### 6.5 WSD/mDNS обнаружение
 - [ ] Крейт `mdns-sd` — вкладки в сканировании: SNMP / mDNS
+
+#### 6.6 Поддержка USB и расшаренных принтеров (Windows only, через WMI)
+
+**Контекст:** TonerScope сейчас работает только с принтерами, у которых есть собственный IP
+в сети (прямое подключение по Ethernet/Wi-Fi). Принтер, подключённый по USB к компьютеру
+и расшаренный через Windows, IP не имеет и по SNMP недоступен. Для таких принтеров
+нужен другой механизм — WMI (Windows Management Instrumentation).
+
+**Ограничения WMI-подхода:**
+- Windows only (на Linux/macOS не работает — там USB-принтеры через CUPS)
+- Уровень тонера и расходники отдаются только если драйвер принтера их поддерживает
+  (Pantum, HP, Kyocera — обычно поддерживают; дешёвые OEM-драйверы — нет)
+- Принтер должен быть установлен на том ПК, где запущен TonerScope, или на удалённом
+  хосте, доступном по WMI (требует прав администратора и открытого DCOM)
+
+**Что нужно реализовать:**
+
+Rust-бэкенд:
+- [ ] Новый модуль `src-tauri/src/wmi/mod.rs` — опрос через WMI
+- [ ] Зависимость `wmi = "0.13"` в `Cargo.toml` (только под `[target.'cfg(windows)'.dependencies]`)
+- [ ] WMI-запрос `Win32_Printer` — список установленных принтеров (имя, статус, порт, shared)
+- [ ] WMI-запрос `Win32_PnPEntity` или `CIM_Printer` — данные о расходниках (если драйвер поддерживает)
+- [ ] Tauri-команда `get_local_printers()` → `Vec<LocalPrinterRecord>` (Windows only, на других ОС — пустой массив)
+- [ ] Tauri-команда `poll_local_printer(printer_name: String)` → `LocalPrinterSnapshot`
+- [ ] Интеграция в планировщик: опрашивать локальные принтеры наравне со SNMP-принтерами
+
+БД:
+- [ ] Добавить поле `connection_type TEXT NOT NULL DEFAULT 'snmp'` в таблицу `printers`
+      (значения: `'snmp'` / `'wmi'`)
+- [ ] Добавить поле `host_name TEXT` — имя Windows-хоста для WMI (пусто для SNMP-принтеров)
+- [ ] Добавить поле `printer_name TEXT` — системное имя принтера в Windows (для WMI)
+- [ ] Миграция схемы: `ALTER TABLE printers ADD COLUMN ...` с `IF NOT EXISTS` guard
+
+Фронтенд:
+- [ ] Расширить `PrinterRecord` и `AppSettingsRecord` новыми полями
+- [ ] Добавить в `scan/+page.svelte` третью вкладку **«Локальные (USB/расшаренные)»**
+      с кнопкой «Найти на этом ПК» → `invoke('get_local_printers')`
+- [ ] В модалке добавления принтера (`printers/+page.svelte`) — переключатель типа:
+      **SNMP (по IP)** / **WMI (локальный/расшаренный)**; при WMI скрывать поле IP,
+      показывать поле «Имя хоста» и выпадающий список обнаруженных принтеров
+- [ ] В `PrinterCard.svelte` и `PrinterDetail.svelte` — иконка/бейдж типа подключения
+      (сетевой / USB) рядом с именем принтера
+- [ ] В `StatusBadge.svelte` — учитывать WMI-статусы (`Idle` / `Printing` / `Error` / `Offline`)
+
+**WMI-структуры (Rust):**
+```rust
+// src-tauri/src/wmi/mod.rs
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+struct Win32Printer {
+    name: String,
+    printer_status: u32,   // 3=Idle, 4=Printing, 5=Warmup, 6=Stopped
+    work_offline: bool,
+    shared: bool,
+    share_name: Option<String>,
+    port_name: Option<String>,
+    driver_name: Option<String>,
+    detected_error_state: u32,
+}
+```
+
+**WMI-статусы PrinterStatus:**
+```
+1=Other, 2=Unknown, 3=Idle, 4=Printing, 5=Warmup,
+6=Stopped Printing, 7=Offline
+```
+
+**Новые Tauri-команды:**
+```
+get_local_printers()                        → Vec<LocalPrinterRecord>
+poll_local_printer(printer_name: String)    → LocalPrinterSnapshot
+```
+
+**Примечание по Linux/macOS:** на этих платформах USB-принтеры управляются через CUPS.
+Поддержка CUPS (`lpstat -p`, `lpstat -s`) — отдельная подзадача, в текущий план не включена.
 
 ---
 
@@ -680,8 +793,12 @@ sudo apt-get install -y \
 ## 💬 Контекст для нового диалога
 
 > Продолжаем разработку TonerScope — приложения для мониторинга сетевых принтеров
-> на Tauri v2 + SvelteKit + SCSS. Фазы 1, 2, 3 и 4 завершены.
-> Следующий шаг — Фаза 5: иконки и брендинг, или Фаза 6: дополнительные функции.
+> на Tauri v2 + SvelteKit + SCSS. Фазы 1, 2, 3, 4 и 5 завершены.
+> Следующий шаг — Фаза 6: дополнительные функции.
+> Приоритет: Фаза 6.1 — перезапуск Print Spooler (исходная задача проекта).
+> В плане также Фаза 6.6 — поддержка USB/расшаренных принтеров через WMI (Windows only):
+> принтеры без собственного IP, подключённые по USB и расшаренные через Windows,
+> не видны по SNMP — для них нужен отдельный WMI-механизм.
 > Полное состояние проекта в файле PROJECT_STATUS.md.
 
 ---
@@ -719,6 +836,9 @@ sudo apt-get install -y \
 
 ---
 
-*Последнее обновление: Фаза 4 завершена.*
-*Реализованы CRUD правил алертов (таблица alert_rules в SQLite, три Tauri-команды,*
-*полноценный UI с таблицей/модалкой/toggle) и desktop-уведомления через tauri-plugin-notification.*
+*Последнее обновление: Фаза 5 завершена. В план добавлена Фаза 6.6.*
+*Реализованы SVG-иконки: favicon.svg (адаптивный, светлая/тёмная тема), tonerscope-1024.svg*
+*(мастер для npx tauri icon), tray-icon.svg (монохромная 22×22). PNG-иконки генерируются*
+*командой `npx tauri icon` из конвертированного PNG мастера.*
+*Фаза 6.6: добавлена поддержка USB/расшаренных принтеров через WMI (Windows only) —*
+*план включает новый модуль wmi/, расширение схемы БД, две новые Tauri-команды и UI.*

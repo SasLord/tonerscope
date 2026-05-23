@@ -6,6 +6,7 @@ mod scanner;
 mod scheduler;
 mod snmp;
 
+use tauri::tray::TrayIconBuilder;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -34,6 +35,10 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 scheduler::start(app_handle).await;
             });
+
+            TrayIconBuilder::new()
+                .icon(tauri::image::Image::from_path("icons/tray-icon.png").unwrap())
+                .build(app)?;
 
             Ok(())
         })
