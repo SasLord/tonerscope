@@ -1,7 +1,7 @@
 <!-- src/lib/components/printer/PrinterDetail.svelte -->
 
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { fly } from 'svelte/transition';
   import type { PrinterInfo } from '$lib/types/printer';
   import StatusBadge from './StatusBadge.svelte';
@@ -17,8 +17,27 @@
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
-  let polling  = false;
-  let removing = false;
+  let polling        = false;
+  let removing       = false;
+  let restartingSpooler = false;
+
+  // true — Windows, false — другие ОС или не определено
+  let isWindows = false;
+  // Текущий статус службы Spooler
+  let spoolerStatus = '';
+
+  onMount(() => {
+    // Определяем платформу и запрашиваем статус спулера (не async onMount — паттерн проекта)
+    api.getSpoolerStatus()
+      .then((status) => {
+        isWindows     = status !== 'unavailable';
+        spoolerStatus = status;
+      })
+      .catch(() => {
+        isWindows     = false;
+        spoolerStatus = 'unavailable';
+      });
+  });
 
   async function pollNow() {
     polling = true;
@@ -48,8 +67,38 @@
     }
   }
 
+  async function restartSpooler() {
+    restartingSpooler = true;
+    spoolerStatus     = 'stop_pending';
+    try {
+      const result = await api.restartSpooler();
+      spoolerStatus = result.status;
+      if (result.success) {
+        notifications.success('Print Spooler перезапущен', result.message);
+      } else {
+        notifications.warning('Спулер перезапускается', result.message);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      notifications.error('Ошибка перезапуска спулера', msg);
+      spoolerStatus = 'unknown';
+    } finally {
+      restartingSpooler = false;
+    }
+  }
+
   const brandIconMap: Record<string, string> = {
     pantum: 'P', kyocera: 'K', hp: 'H', canon: 'C', other: '?',
+  };
+
+  // Человекочитаемый статус службы
+  const spoolerStatusLabels: Record<string, string> = {
+    running:       'Запущен',
+    stopped:       'Остановлен',
+    start_pending: 'Запускается…',
+    stop_pending:  'Останавливается…',
+    unknown:       'Неизвестно',
+    unavailable:   '',
   };
 </script>
 
@@ -127,6 +176,53 @@
       </div>
     {/if}
   </div>
+
+  <!-- Print Spooler (Windows only) -->
+  {#if isWindows}
+    <div class="detail__section">
+      <h3 class="detail__section-title">Print Spooler</h3>
+      <div class="detail__spooler-card">
+        <div class="detail__spooler-info">
+          <div class="detail__spooler-icon" class:detail__spooler-icon--running={spoolerStatus === 'running'} class:detail__spooler-icon--stopped={spoolerStatus === 'stopped'} class:detail__spooler-icon--pending={spoolerStatus === 'start_pending' || spoolerStatus === 'stop_pending'}>
+            <!-- Gear icon -->
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </div>
+          <div class="detail__spooler-text">
+            <span class="detail__spooler-name">Print Spooler</span>
+            {#if spoolerStatus && spoolerStatus !== 'unavailable'}
+              <span class="detail__spooler-status" data-status={spoolerStatus}>
+                {spoolerStatusLabels[spoolerStatus] ?? spoolerStatus}
+              </span>
+            {/if}
+          </div>
+        </div>
+        <button
+          class="detail__spooler-btn"
+          class:detail__spooler-btn--loading={restartingSpooler}
+          disabled={restartingSpooler}
+          on:click={restartSpooler}
+          title="Перезапустить Print Spooler"
+        >
+          {#if restartingSpooler}
+            <!-- Spinner -->
+            <svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+          {:else}
+            <!-- Refresh icon -->
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 .49-3.54"/>
+            </svg>
+          {/if}
+          {restartingSpooler ? 'Перезапуск…' : 'Перезапустить'}
+        </button>
+      </div>
+    </div>
+  {/if}
 
   <!-- Actions -->
   <div class="detail__actions">
@@ -333,6 +429,107 @@
       border: 1px dashed var(--border);
     }
 
+    // ── Spooler block ──
+    &__spooler-card {
+      @include m.flex-between;
+      gap: v.$space-3;
+      padding: v.$space-3;
+      background: var(--surface-2);
+      border-radius: v.$radius-md;
+      border: 1px solid var(--border);
+    }
+
+    &__spooler-info {
+      @include m.flex-start;
+      gap: v.$space-2;
+      min-width: 0;
+    }
+
+    &__spooler-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: v.$radius-sm;
+      @include m.flex-center;
+      flex-shrink: 0;
+      color: var(--text-tertiary);
+      background: var(--surface-3);
+      transition: color v.$transition-base, background v.$transition-base;
+
+      &--running {
+        color: var(--status-online);
+        background: rgba(34,197,94,0.12);
+      }
+
+      &--stopped {
+        color: var(--status-error);
+        background: rgba(239,68,68,0.10);
+      }
+
+      &--pending {
+        color: var(--status-warning);
+        background: rgba(245,158,11,0.10);
+      }
+    }
+
+    &__spooler-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    &__spooler-name {
+      font-size: v.$font-size-xs;
+      font-weight: v.$font-weight-medium;
+      color: var(--text-primary);
+    }
+
+    &__spooler-status {
+      font-family: v.$font-mono;
+      font-size: 10px;
+      color: var(--text-tertiary);
+
+      &[data-status='running']       { color: var(--status-online); }
+      &[data-status='stopped']       { color: var(--status-error); }
+      &[data-status='start_pending'],
+      &[data-status='stop_pending']  { color: var(--status-warning); }
+    }
+
+    &__spooler-btn {
+      @include m.flex-center;
+      gap: v.$space-1;
+      flex-shrink: 0;
+      height: 28px;
+      padding: 0 v.$space-3;
+      border-radius: v.$radius-sm;
+      font-family: v.$font-mono;
+      font-size: 10px;
+      font-weight: v.$font-weight-semibold;
+      color: var(--accent);
+      background: var(--accent-muted);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition:
+        background v.$transition-base,
+        border-color v.$transition-base,
+        opacity v.$transition-base;
+      @include m.focus-ring;
+
+      &:hover:not(:disabled) {
+        background: rgba(0,212,170,0.20);
+        border-color: rgba(0,212,170,0.3);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      &--loading {
+        pointer-events: none;
+      }
+    }
+
     // ── Actions ──
     &__actions {
       display: flex;
@@ -342,5 +539,14 @@
       padding-top: v.$space-4;
       border-top: 1px solid var(--border);
     }
+  }
+
+  // Анимация спиннера
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .spin {
+    animation: spin 0.8s linear infinite;
+    display: block;
   }
 </style>

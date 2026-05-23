@@ -2,11 +2,22 @@
 
 <script lang="ts">
   import type { PrinterInfo } from '$lib/types/printer';
+  import { onMount } from 'svelte';
   import PrinterCard from './PrinterCard.svelte';
   import { selectedPrinterId } from '$lib/stores/printers';
+  import { api } from '$lib/api/tauri';
 
   export let printers: PrinterInfo[] = [];
   export let loading = false;
+
+  // Определяется один раз при монтировании компонента
+  let isWindows = false;
+
+  onMount(() => {
+    api.getSpoolerStatus()
+      .then((status) => { isWindows = status !== 'unavailable'; })
+      .catch(() => { isWindows = false; });
+  });
 </script>
 
 {#if loading}
@@ -38,6 +49,7 @@
       <div class="animate-fade-in-up stagger-{Math.min(i + 1, 12)}">
         <PrinterCard
           {printer}
+          {isWindows}
           selected={$selectedPrinterId === printer.id}
           on:select={(e) => selectedPrinterId.set(e.detail)}
         />

@@ -7,11 +7,17 @@
   import TonerGauge from './TonerGauge.svelte';
   import Tooltip from '$lib/components/ui/Tooltip.svelte';
   import { formatPageCount, formatRelativeTime, brandLabel } from '$lib/utils/formatters';
+  import { notifications } from '$lib/stores/notifications';
+  import { api } from '$lib/api/tauri';
 
   export let printer: PrinterInfo;
   export let selected = false;
+  // Передаётся из родителя (PrinterGrid / Dashboard) после определения в onMount
+  export let isWindows = false;
 
   const dispatch = createEventDispatcher<{ select: string }>();
+
+  let restartingSpooler = false;
 
   $: hasCritical = printer.supplies.some(s => s.isCritical);
   $: hasLow      = printer.supplies.some(s => s.isLow);
@@ -24,6 +30,25 @@
     canon:   'C',
     other:   '?',
   };
+
+  async function handleRestartSpooler(e: MouseEvent) {
+    // Не открывать панель деталей при клике на кнопку
+    e.stopPropagation();
+    restartingSpooler = true;
+    try {
+      const result = await api.restartSpooler();
+      if (result.success) {
+        notifications.success('Print Spooler перезапущен', printer.name);
+      } else {
+        notifications.warning('Спулер перезапускается', result.message);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      notifications.error('Ошибка перезапуска', msg);
+    } finally {
+      restartingSpooler = false;
+    }
+  }
 </script>
 
 <div
@@ -38,7 +63,7 @@
   role="button"
   aria-pressed={selected}
 >
-  <!-- Top row: brand icon + name + status -->
+  <!-- Top row: brand icon + name + status + spooler btn -->
   <div class="printer-card__header">
     <div class="printer-card__brand-badge" data-brand={printer.brand}>
       {brandIcons[printer.brand] ?? '?'}
@@ -47,7 +72,33 @@
       <h3 class="printer-card__name">{printer.name}</h3>
       <span class="printer-card__model">{printer.model}</span>
     </div>
-    <StatusBadge status={printer.status} size="sm" />
+    <div class="printer-card__header-right">
+      <!-- Кнопка перезапуска спулера: только Windows, только online/printing -->
+      {#if isWindows && (printer.status === 'online' || printer.status === 'offline' || printer.status === 'error')}
+        <Tooltip text="Перезапустить Print Spooler" position="left">
+          <button
+            class="printer-card__spooler-btn"
+            class:printer-card__spooler-btn--loading={restartingSpooler}
+            disabled={restartingSpooler}
+            on:click={handleRestartSpooler}
+            aria-label="Перезапустить Print Spooler"
+          >
+            {#if restartingSpooler}
+              <svg class="spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+            {:else}
+              <!-- Compact refresh/cycle icon -->
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 .49-3.54"/>
+              </svg>
+            {/if}
+          </button>
+        </Tooltip>
+      {/if}
+      <StatusBadge status={printer.status} size="sm" />
+    </div>
   </div>
 
   <!-- Alert banner -->
@@ -184,6 +235,56 @@
       margin-top: 1px;
     }
 
+    // Правая часть хедера: кнопка спулера + статус-бейдж
+    &__header-right {
+      @include m.flex-start;
+      gap: v.$space-2;
+      flex-shrink: 0;
+    }
+
+    // ── Spooler button (compact, on-card) ──
+    &__spooler-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: v.$radius-sm;
+      @include m.flex-center;
+      color: var(--text-tertiary);
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      opacity: 0;
+      transition:
+        opacity v.$transition-base,
+        background v.$transition-base,
+        color v.$transition-base,
+        border-color v.$transition-base;
+      @include m.focus-ring;
+
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.5 !important;
+      }
+
+      &--loading {
+        opacity: 0.7 !important;
+        pointer-events: none;
+      }
+    }
+
+    // Показываем кнопку спулера при hover на карточку
+    &:hover &__spooler-btn:not(:disabled),
+    &--selected &__spooler-btn:not(:disabled) {
+      opacity: 1;
+      color: var(--accent);
+      background: var(--accent-muted);
+      border-color: rgba(0,212,170,0.2);
+
+      &:hover {
+        background: rgba(0,212,170,0.20);
+        border-color: rgba(0,212,170,0.35);
+      }
+    }
+
     // ── Alert ──
     &__alert {
       font-family: v.$font-mono;
@@ -266,5 +367,13 @@
       font-size: 10px;
       color: var(--text-tertiary);
     }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .spin {
+    animation: spin 0.8s linear infinite;
+    display: block;
   }
 </style>

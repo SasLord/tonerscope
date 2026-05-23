@@ -89,6 +89,15 @@ export interface AlertRuleRecord {
   notifyDesktop: boolean;
 }
 
+// ─── Фаза 6.1: Print Spooler ──────────────────────────────────────────────────
+
+export interface SpoolerRestartResult {
+  success: boolean;
+  message: string;
+  /** "running" | "stopped" | "start_pending" | "stop_pending" | "unknown" | "unavailable" */
+  status:  string;
+}
+
 // ─── Payloads событий ─────────────────────────────────────────────────────────
 
 export interface ScanProgressPayload {
@@ -169,6 +178,16 @@ export const api = {
 
   deleteAlertRule: (id: string): Promise<void> =>
     inv('delete_alert_rule', { id }),
+
+  // ── Print Spooler (Фаза 6.1, Windows only) ───────────────────────────────
+
+  /** Перезапускает службу Print Spooler. На не-Windows системах выбрасывает ошибку. */
+  restartSpooler: (): Promise<SpoolerRestartResult> =>
+    inv('restart_spooler'),
+
+  /** Возвращает текущий статус службы Spooler: "running" / "stopped" / "unavailable" / … */
+  getSpoolerStatus: (): Promise<string> =>
+    inv('get_spooler_status'),
 
   // ── События Backend → Frontend ────────────────────────────────────────────
 

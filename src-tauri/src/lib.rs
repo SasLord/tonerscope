@@ -56,6 +56,9 @@ pub fn run() {
             commands::alerts::get_alert_rules,
             commands::alerts::save_alert_rule,
             commands::alerts::delete_alert_rule,
+            // Фаза 6.1: Print Spooler
+            commands::spooler::restart_spooler,
+            commands::spooler::get_spooler_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TonerScope");

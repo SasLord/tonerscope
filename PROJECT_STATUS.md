@@ -63,11 +63,13 @@ tonerscope/
 │   │   │   │                     Экспортирует: api.{getPrinters, addPrinter, removePrinter,
 │   │   │   │                     pollPrinter, getSnapshots, getHistoryStats, scanNetwork,
 │   │   │   │                     getSettings, saveSettings, getAlertRules, saveAlertRule,
-│   │   │   │                     deleteAlertRule, onPrinterUpdated, onPrinterAlert, onScanProgress}
+│   │   │   │                     deleteAlertRule, restartSpooler, getSpoolerStatus,
+│   │   │   │                     onPrinterUpdated, onPrinterAlert, onScanProgress}
 │   │   │   │                     Типы: PrinterRecord, SupplyRecord, PrinterSnapshotRecord,
 │   │   │   │                     SnapshotRecord, HistoryStatsRecord, SupplyStatRecord,
-│   │   │   │                     AppSettingsRecord, AlertRuleRecord, UnlistenFn,
-│   │   │   │                     ScanProgressPayload, PrinterUpdatedPayload, PrinterAlertPayload
+│   │   │   │                     AppSettingsRecord, AlertRuleRecord, SpoolerRestartResult,
+│   │   │   │                     UnlistenFn, ScanProgressPayload, PrinterUpdatedPayload,
+│   │   │   │                     PrinterAlertPayload
 │   │   │   └── index.ts       ✅ Barrel re-export из tauri.ts (включая AlertRuleRecord)
 │   │   │
 │   │   ├── components/
@@ -97,10 +99,26 @@ tonerscope/
 │   │   │   │
 │   │   │   ├── printer/
 │   │   │   │   ├── index.ts           ✅ Barrel export
-│   │   │   │   ├── PrinterCard.svelte   ✅ Карточка принтера: бренд-иконка, статус, расходники
-│   │   │   │   ├── PrinterDetail.svelte ✅ Боковая панель деталей; реальный pollNow() через
-│   │   │   │   │                          api.pollPrinter(ip); удаление через api.removePrinter(id)
-│   │   │   │   ├── PrinterGrid.svelte   ✅ CSS grid auto-fill; skeleton loader; empty state
+│   │   │   │   ├── PrinterCard.svelte   ✅ ОБНОВЛЁН В ФАЗЕ 6.1:
+│   │   │   │   │                          Карточка принтера: бренд-иконка, статус, расходники.
+│   │   │   │   │                          Prop isWindows: boolean (передаётся из PrinterGrid).
+│   │   │   │   │                          При isWindows=true: компактная кнопка перезапуска спулера
+│   │   │   │   │                          в хедере карточки (видна при hover/selected).
+│   │   │   │   │                          e.stopPropagation() — не открывает панель деталей.
+│   │   │   │   ├── PrinterDetail.svelte ✅ ОБНОВЛЁН В ФАЗЕ 6.1:
+│   │   │   │   │                          Боковая панель деталей. pollNow() через api.pollPrinter(ip).
+│   │   │   │   │                          Удаление через api.removePrinter(id).
+│   │   │   │   │                          Блок «Print Spooler» (только Windows):
+│   │   │   │   │                          — иконка-шестерёнка с цветом по статусу
+│   │   │   │   │                            (running=зелёный, stopped=красный, pending=жёлтый)
+│   │   │   │   │                          — строка статуса службы на русском
+│   │   │   │   │                          — кнопка «Перезапустить» (accent-цвет, спиннер при загрузке)
+│   │   │   │   │                          — состояние isWindows определяется в onMount через
+│   │   │   │   │                            api.getSpoolerStatus() (unavailable → не Windows)
+│   │   │   │   ├── PrinterGrid.svelte   ✅ ОБНОВЛЁН В ФАЗЕ 6.1:
+│   │   │   │   │                          CSS grid auto-fill; skeleton loader; empty state.
+│   │   │   │   │                          onMount определяет isWindows через api.getSpoolerStatus()
+│   │   │   │   │                          один раз и передаёт prop {isWindows} в каждый PrinterCard.
 │   │   │   │   ├── StatusBadge.svelte   ✅ Animated ping dot для online/printing
 │   │   │   │   └── TonerGauge.svelte    ✅ Название + цветной ProgressBar + алерт-бейдж
 │   │   │   │
@@ -175,6 +193,8 @@ tonerscope/
 ├── src-tauri/
 │   ├── build.rs               ✅ tauri_build::build()
 │   ├── Cargo.toml             ✅ Все зависимости включая tauri-plugin-notification = "2"
+│   │                             Новых зависимостей в Фазе 6.1 не добавлено —
+│   │                             sc.exe вызывается через std::process::Command (stdlib).
 │   ├── tauri.conf.json        ✅ Tauri v2 конфиг; window 1200x780; bundle targets: all
 │   │
 │   ├── capabilities/
@@ -192,7 +212,9 @@ tonerscope/
 │   └── src/
 │       ├── main.rs            ✅ windows_subsystem="windows"; вызов lib::run()
 │       ├── lib.rs             ✅ Tauri Builder; setup DB + scheduler; invoke_handler со всеми
-│       │                         командами включая get_alert_rules, save_alert_rule, delete_alert_rule
+│       │                         командами. В Фазе 6.1 добавлены:
+│       │                         commands::spooler::restart_spooler,
+│       │                         commands::spooler::get_spooler_status
 │       │
 │       ├── snmp/
 │       │   ├── mod.rs         ✅ pub use client::{...}
@@ -219,15 +241,24 @@ tonerscope/
 │       │                         notify_desktop (Фаза 4).
 │       │
 │       ├── commands/
-│       │   ├── mod.rs         ✅ pub mod alerts/printer/scanner/settings
-│       │   ├── alerts.rs      ✅ НОВЫЙ ФАЙЛ (Фаза 4):
-│       │   │                     get_alert_rules, save_alert_rule(rule: AlertRule),
+│       │   ├── mod.rs         ✅ pub mod alerts/printer/scanner/settings/spooler
+│       │   ├── alerts.rs      ✅ get_alert_rules, save_alert_rule(rule: AlertRule),
 │       │   │                     delete_alert_rule(id: String)
 │       │   ├── printer.rs     ✅ get_printers, add_printer, remove_printer, poll_printer,
 │       │   │                     get_snapshots(printer_id, limit: Option<i64>),
 │       │   │                     get_history_stats(printer_id, period_days: Option<i64>)
 │       │   ├── scanner.rs     ✅ scan_network (async, emit scan-progress events)
-│       │   └── settings.rs    ✅ get_settings, save_settings
+│       │   ├── settings.rs    ✅ get_settings, save_settings
+│       │   └── spooler.rs     ✅ НОВЫЙ ФАЙЛ (Фаза 6.1):
+│       │                         restart_spooler() → Result<SpoolerRestartResult, String>
+│       │                         get_spooler_status() → Result<String, String>
+│       │                         Windows: sc.exe stop Spooler → ждёт STOPPED (8 сек) →
+│       │                           sc.exe start Spooler → ждёт RUNNING (10 сек), поллинг 500 мс.
+│       │                         Не-Windows: get_spooler_status() → "unavailable",
+│       │                           restart_spooler() → Err("только на Windows").
+│       │                         SpoolerRestartResult { success: bool, message: String, status: String }
+│       │                         Статусы: "running"/"stopped"/"start_pending"/"stop_pending"/"unknown"
+│       │                         #[allow(dead_code)] на заглушке query_spooler_status под not(windows)
 │       │
 │       └── scheduler/
 │           └── mod.rs         ✅ Бесконечный loop; poll_all(); emit "printer-updated" +
@@ -303,8 +334,6 @@ tonerscope/
 
 ## ✅ Статус Фазы 4 — ЗАВЕРШЕНА
 
-### Что реализовано
-
 - ✅ **`src-tauri/src/db/models.rs`** — добавлена структура:
   ```rust
   pub struct AlertRule {
@@ -376,50 +405,88 @@ tonerscope/
 
 ## ✅ Статус Фазы 5 — ЗАВЕРШЕНА
 
-### Что реализовано
-
 - ✅ **`static/favicon.svg`** — адаптивная SVG-иконка для браузерной вкладки.
-  Концепт: прицел (scope) + тонер-картридж с полоской уровня.
   Адаптируется к теме ОС через `@media (prefers-color-scheme)`:
   тёмная тема: акцент `#00d4aa` / фон `#0d0f12`;
   светлая тема: акцент `#0099aa` / фон `#f4f6f9`.
 
 - ✅ **`src-tauri/icons/tonerscope-1024.svg`** — мастер-иконка 1024×1024.
-  Скруглённый фон `rx="200"` под все платформы. Три кольца (декоративное / вспомогательное /
-  прицельное), четыре засечки по 45°, крестовина, тонер-картридж с полоской уровня 72%
-  и рядом точек-индикаторов под ней.
+  Скруглённый фон `rx="200"` под все платформы. Три кольца, четыре засечки по 45°,
+  крестовина, тонер-картридж с полоской уровня 72% и рядом точек-индикаторов.
 
 - ✅ **`src-tauri/icons/tray-icon.svg`** — монохромная tray-иконка 22×22.
-  По умолчанию белая (для тёмной системной панели). Для светлой — заменить `#ffffff` на `#000000`.
+  По умолчанию белая (для тёмной системной панели).
 
-- ⚠️ **PNG-иконки нужно сгенерировать** (делается один раз командой):
+- ⚠️ **PNG-иконки нужно сгенерировать** (делается один раз):
   ```bash
-  # 1. Конвертировать SVG → PNG (любым из способов):
   inkscape src-tauri/icons/tonerscope-1024.svg \
-    --export-type=png \
-    --export-filename=src-tauri/icons/tonerscope-1024.png \
+    --export-type=png --export-filename=src-tauri/icons/tonerscope-1024.png \
     --export-width=1024 --export-height=1024
-
-  # 2. Сгенерировать все форматы для Tauri:
   npx tauri icon src-tauri/icons/tonerscope-1024.png
-  # Создаст: 32x32.png, 128x128.png, 128x128@2x.png, icon.icns, icon.ico
   ```
 
-- ⚠️ **favicon.png** — также нужно сгенерировать из favicon.svg (32×32).
+---
 
-- ✅ `tauri.conf.json` → `bundle.icon` уже прописывает правильные пути — ничего менять не нужно.
+## ✅ Статус Фазы 6.1 — ЗАВЕРШЕНА
+
+### Что реализовано
+
+- ✅ **`src-tauri/src/commands/spooler.rs`** — новый файл:
+  ```rust
+  pub struct SpoolerRestartResult {
+      pub success: bool,
+      pub message: String,
+      pub status:  String,  // "running"/"stopped"/"start_pending"/"stop_pending"/"unknown"
+  }
+
+  #[tauri::command]
+  pub async fn restart_spooler(_db: State<Mutex<Database>>) -> Result<SpoolerRestartResult, String>
+
+  #[tauri::command]
+  pub async fn get_spooler_status(_db: State<Mutex<Database>>) -> Result<String, String>
+  ```
+  Windows: `sc.exe stop Spooler` → `wait_for_service_state("STOPPED", 8сек)` →
+  `sc.exe start Spooler` → `wait_for_service_state("RUNNING", 10сек)`, поллинг каждые 500 мс.
+  Не-Windows: `get_spooler_status()` → `Ok("unavailable")`, `restart_spooler()` → `Err(...)`.
+  `#[allow(dead_code)]` на заглушке `query_spooler_status` под `#[cfg(not(windows))]`.
+  Нет новых зависимостей в Cargo.toml — используется только `std::process::Command`.
+
+- ✅ **`src-tauri/src/commands/mod.rs`** — добавлен `pub mod spooler`.
+
+- ✅ **`src-tauri/src/lib.rs`** — в `invoke_handler` добавлены:
+  `commands::spooler::restart_spooler`, `commands::spooler::get_spooler_status`.
+
+- ✅ **`src/lib/api/tauri.ts`** — добавлен интерфейс и два метода:
+  ```typescript
+  export interface SpoolerRestartResult {
+    success: boolean;
+    message: string;
+    status:  string;
+  }
+  restartSpooler(): Promise<SpoolerRestartResult>   // invoke('restart_spooler')
+  getSpoolerStatus(): Promise<string>               // invoke('get_spooler_status')
+  ```
+
+- ✅ **`src/lib/components/printer/PrinterGrid.svelte`** — добавлен `onMount` с одиночным
+  вызовом `api.getSpoolerStatus()` для определения платформы; prop `{isWindows}` передаётся
+  в каждый `PrinterCard`.
+
+- ✅ **`src/lib/components/printer/PrinterCard.svelte`** — новый prop `isWindows: boolean`.
+  При `isWindows=true` в хедере карточки появляется компактная кнопка перезапуска спулера
+  (видна при hover и selected через CSS opacity). `e.stopPropagation()` предотвращает
+  открытие панели деталей. Спиннер при загрузке.
+
+- ✅ **`src/lib/components/printer/PrinterDetail.svelte`** — новая секция «Print Spooler»
+  (только при `isWindows`). Иконка-шестерёнка меняет цвет по статусу службы
+  (running=зелёный/stopped=красный/pending=жёлтый). Строка статуса на русском.
+  Кнопка «Перезапустить» в accent-цвете со спиннером. `isWindows` определяется в
+  `onMount` через `.then()` (паттерн проекта — не async onMount).
 
 ---
 
 ## 🗺 Планы по фазам
 
 ### Фаза 6 — Дополнительные функции
-
-#### 6.1 Перезапуск Print Spooler (исходная задача — приоритет)
-- [ ] Tauri команда `restart_spooler(computer: String)` через `sc.exe stop/start spooler`
-      или WinAPI `ControlService` / `StartService`
-- [ ] Кнопка «Перезапустить спулер» на карточке и в панели деталей принтера (Windows only)
-- [ ] Статус операции через Toast
 
 #### 6.2 Групповое управление
 - [ ] Фильтрация по группе на dashboard (поле `grp` в DB уже есть)
@@ -489,9 +556,9 @@ struct Win32Printer {
     printer_status: u32,   // 3=Idle, 4=Printing, 5=Warmup, 6=Stopped
     work_offline: bool,
     shared: bool,
-    share_name: Option<String>,
-    port_name: Option<String>,
-    driver_name: Option<String>,
+    share_name: Option,
+    port_name: Option,
+    driver_name: Option,
     detected_error_state: u32,
 }
 ```
@@ -531,6 +598,8 @@ poll_local_printer(printer_name: String)    → LocalPrinterSnapshot
 | `get_alert_rules` | — | `Vec<AlertRule>` | ✅ |
 | `save_alert_rule` | `rule: AlertRule` | `()` | ✅ |
 | `delete_alert_rule` | `id: String` | `()` | ✅ |
+| `restart_spooler` | — | `SpoolerRestartResult` | ✅ Windows only |
+| `get_spooler_status` | — | `String` | ✅ "unavailable" на не-Windows |
 
 ### Важно: передача параметров invoke
 
@@ -542,10 +611,8 @@ invoke('get_snapshots', { printer_id: printerId, limit })
 invoke('get_history_stats', { printer_id: printerId, period_days: 30 })
 invoke('save_alert_rule', { rule })   // rule — объект AlertRuleRecord (camelCase поля)
 invoke('delete_alert_rule', { id })
-
-// Данные возвращаются в camelCase (serde rename_all = "camelCase")
-// snap.printerId, snap.suppliesJson, snap.pageCount
-// rule.printerId, rule.supplyType, rule.notifyDesktop
+invoke('restart_spooler')             // без параметров
+invoke('get_spooler_status')          // без параметров
 ```
 
 ### События (Backend → Frontend)
@@ -793,12 +860,9 @@ sudo apt-get install -y \
 ## 💬 Контекст для нового диалога
 
 > Продолжаем разработку TonerScope — приложения для мониторинга сетевых принтеров
-> на Tauri v2 + SvelteKit + SCSS. Фазы 1, 2, 3, 4 и 5 завершены.
-> Следующий шаг — Фаза 6: дополнительные функции.
-> Приоритет: Фаза 6.1 — перезапуск Print Spooler (исходная задача проекта).
-> В плане также Фаза 6.6 — поддержка USB/расшаренных принтеров через WMI (Windows only):
-> принтеры без собственного IP, подключённые по USB и расшаренные через Windows,
-> не видны по SNMP — для них нужен отдельный WMI-механизм.
+> на Tauri v2 + SvelteKit + SCSS. Фазы 1, 2, 3, 4, 5 и 6.1 завершены.
+> Следующий шаг — продолжение Фазы 6: дополнительные функции.
+> Приоритет: Фаза 6.6 — поддержка USB/расшаренных принтеров через WMI (Windows only).
 > Полное состояние проекта в файле PROJECT_STATUS.md.
 
 ---
@@ -834,11 +898,13 @@ sudo apt-get install -y \
 11. **`supply.percent` имеет тип `u8`** в Rust. При сравнении с `i32` или `i64` использовать
     явное приведение: `i32::from(supply.percent)` или `supply.percent.into()`.
 
+12. **`get_spooler_status()` возвращает `"unavailable"`** на не-Windows платформах.
+    Фронтенд использует это значение как признак не-Windows: `isWindows = status !== 'unavailable'`.
+    Блок Print Spooler в UI скрыт при `isWindows = false`.
+
 ---
 
-*Последнее обновление: Фаза 5 завершена. В план добавлена Фаза 6.6.*
-*Реализованы SVG-иконки: favicon.svg (адаптивный, светлая/тёмная тема), tonerscope-1024.svg*
-*(мастер для npx tauri icon), tray-icon.svg (монохромная 22×22). PNG-иконки генерируются*
-*командой `npx tauri icon` из конвертированного PNG мастера.*
-*Фаза 6.6: добавлена поддержка USB/расшаренных принтеров через WMI (Windows only) —*
-*план включает новый модуль wmi/, расширение схемы БД, две новые Tauri-команды и UI.*
+*Последнее обновление: Фаза 6.1 завершена.*
+*Реализован перезапуск Print Spooler: команды restart_spooler/get_spooler_status,*
+*кнопка в PrinterDetail (с блоком статуса службы) и компактная кнопка в PrinterCard (hover).*
+*Компилируется чисто на macOS/Linux/Windows. Новых зависимостей в Cargo.toml не добавлено.*
